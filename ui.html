@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emerald HUE Variable Scanner</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #f9fafb;
+      color: #333;
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #059669;
+      margin: 0 0 8px 0;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+    }
+
+    p {
+      margin: 0 0 16px 0;
+      color: #6b7280;
+    }
+
+    p a {
+      color: #00615E;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .option label {
+      margin-left: 8px;
+      font-weight: 500;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    button:focus {
+      outline: 2px solid #059669;
+    }
+
+    .primary-button {
+      background-color: #059669;
+      color: white;
+    }
+
+    .primary-button:hover {
+      background-color: #047857;
+    }
+
+    .secondary-button {
+      background-color: #f3f4f6;
+      color: #374151;
+    }
+
+    .secondary-button:hover {
+      background-color: #e5e7eb;
+    }
+
+    .loading-indicator {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #059669;
+    }
+
+    .loading-indicator svg {
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 6px;
+    }
+
+    .status {
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .status-info {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-error {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .results-panel {
+      display: none;
+    }
+
+    .summary {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      flex: 1;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .metric h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      margin: 0 0 4px 0;
+      font-weight: 600;
+    }
+
+    .metric p {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      color: #333;
+    }
+
+    .used {
+      background-color: #ecfdf5;
+      border-color: #d1fae5;
+    }
+
+    .used h3 {
+      color: #047857;
+    }
+
+    .used p {
+      color: #059669;
+    }
+
+    .missing {
+      background-color: #fffbeb;
+      border-color: #fef3c7;
+    }
+
+    .missing h3 {
+      color: #92400e;
+    }
+
+    .missing p {
+      color: #d97706;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      padding: 6px 12px;
+      background-color: #f3f4f6;
+      border-radius: 4px;
+      font-size: 14px;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .tab:hover {
+      background-color: #e5e7eb;
+    }
+
+    .tab-active {
+      background-color: #e5e7eb;
+      font-weight: 600;
+    }
+
+    .results-list {
+      overflow-y: auto;
+    }
+
+    .result-item {
+      padding: 12px;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .node-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .node-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .node-type {
+      font-size: 12px;
+      color: #6b7280;
+      padding: 2px 8px;
+      background-color: #e5e7eb;
+      border-radius: 9999px;
+    }
+
+    .variable-section {
+      margin-bottom: 8px;
+    }
+
+    .variable-section h4 {
+      font-size: 13px;
+      margin: 0 0 4px 0;
+    }
+
+    .has-variables h4 {
+      color: #059669;
+    }
+
+    .missing-variables h4 {
+      color: #d97706;
+    }
+
+    .variable-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .variable-item {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+      font-size: 11px;
+    }
+
+    .color-tag {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .theme-tag {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .text-tag {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+
+    .responsive-tag {
+      background-color: #e0e7ff;
+      color: #4338ca;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: #6b7280;
+    }
+
+    .variable-value {
+      font-style: italic;
+      font-size: 11px;
+      color: #666;
+      margin-left: 4px;
+    }
+
+    .collections-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .collection-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--figma-color-border);
+    }
+
+    .collection-name {
+      font-weight: 500;
+    }
+
+    .collection-count {
+      font-size: 12px;
+      color: var(--figma-color-text-secondary);
+    }
+
+    .published-badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      background: var(--figma-color-bg-brand);
+      color: var(--figma-color-text-onbrand);
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .token-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--figma-color-bg-secondary);
+      border-radius: 6px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .token-input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid var(--figma-color-border);
+      border-radius: 4px;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: var(--figma-color-text-secondary);
+      margin: 0;
+    }
+
+    .collections-section {
+      margin-bottom: 16px;
+    }
+
+    .collections-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--figma-color-text);
+      margin: 0 0 8px 0;
+      padding: 0 12px;
+    }
+
+    .collections-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .error-message {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background-color: var(--figma-color-bg-danger);
+      color: var(--figma-color-text-danger);
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header" style="display: none;">
+    <h4>Emerald HUE have published a few collection of variables that you can use. Now you can easily design in dark
+      mode,
+      high contrast mode and more.</h4>
+    <p>This plugin will scan the selected frames and show you which variables are used and which are missing.</p>
+    <p><a href="https://confluence.petronas.com/display/EmeraldHUE/Emerald+HUE" target="_blank">Read more about Emerald
+        HUE</a> <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="#00615E" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="arcs">
+        <g fill="none" fill-rule="evenodd">
+          <path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8c0-1.1.9-2 2-2h5M15 3h6v6M10 14L20.2 3.8" />
+        </g>
+      </svg></p>
+  </div>
+
+  <!-- Collections Panel -->
+  <div id="collectionsPanel" class="panel" style="display: none;">
+    <h2>Variable Collections</h2>
+
+    <!-- Collections List -->
+    <div id="collectionsList" class="collections-list">
+      <!-- Collections will be populated here -->
+    </div>
+  </div>
+
+  <!-- Options Panel -->
+  <div id="optionsPanel" class="panel">
+    <h2>Scan Options</h2>
+
+    <!-- Error Message Container -->
+    <div id="scanError" class="error-message" style="display: none;">
+      Please select at least one frame to scan
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="loading-indicator">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 4.75V6.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M17.1266 6.87347L16.0659 7.93413" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M19.25 12H17.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M17.1266 17.1265L16.0659 16.0659" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M12 17.75V19.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M7.9342 16.0659L6.87354 17.1265" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M6.25 12H4.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M7.9342 7.93413L6.87354 6.87347" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </svg>
+      Scanning...
+    </div>
+
+    <div class="option">
+      <input id="scanColors" type="checkbox" checked tabindex="0" aria-label="Scan color variables">
+      <label for="scanColors">Color Variables</label>
+    </div>
+
+    <div class="option">
+      <input id="scanText" type="checkbox" checked tabindex="0" aria-label="Scan text variables">
+      <label for="scanText">Text Variables</label>
+    </div>
+
+    <div class="option">
+      <input id="scanResponsive" type="checkbox" checked tabindex="0" aria-label="Scan responsive variables">
+      <label for="scanResponsive">Responsive Variables</label>
+    </div>
+
+    <div class="button-group">
+      <button id="scanButton" class="primary-button" tabindex="0" aria-label="Start scanning">
+        <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Scan Selected Frames
+      </button>
+    </div>
+
+  </div>
+
+  <div class="button-group panel" style="margin-top: 20px;">
+    <button id="scanAgainButton" class="secondary-button" tabindex="0" aria-label="Scan again">
+      Scan Again
+    </button>
+  </div>
+
+  <!-- Status Message -->
+  <div id="statusMessage" class="status"></div>
+
+  <!-- Results Panel -->
+  <div id="resultsPanel" class="panel results-panel">
+    <h2>Scan Results</h2>
+
+    <!-- Results Summary -->
+    <div class="summary">
+      <div class="metric used">
+        <h3>Variables Used</h3>
+        <p id="usedVariablesCount">0</p>
+      </div>
+
+      <div class="metric missing">
+        <h3>Missing Variables</h3>
+        <p id="missingVariablesCount">0</p>
+      </div>
+
+      <div class="metric hidden">
+        <h3>Nodes Scanned</h3>
+        <p id="nodesScannedCount">0</p>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">All</button>
+      <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">Missing
+        Variables</button>
+      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">Used Variables</button>
+    </div>
+
+    <!-- Detailed Results -->
+    <div id="resultsList" class="results-list">
+      <!-- Results will be dynamically populated here -->
+    </div>
+  </div>
+
+  <script>
+    // Define elements
+    const scanButton = document.getElementById('scanButton');
+    const scanAgainButton = document.getElementById('scanAgainButton');
+    const statusMessage = document.getElementById('statusMessage');
+    const optionsPanel = document.getElementById('optionsPanel');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const resultsList = document.getElementById('resultsList');
+    const collectionsList = document.getElementById('collectionsList');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const usedVariablesCount = document.getElementById('usedVariablesCount');
+    const missingVariablesCount = document.getElementById('missingVariablesCount');
+    const nodesScannedCount = document.getElementById('nodesScannedCount');
+    const showAll = document.getElementById('showAll');
+    const showMissing = document.getElementById('showMissing');
+    const showUsed = document.getElementById('showUsed');
+    const scanError = document.getElementById('scanError');
+
+    // Initialize UI state
+    optionsPanel.style.display = 'block';
+    resultsPanel.style.display = 'none';
+    statusMessage.style.display = 'none';
+
+    // Filter states
+    let currentFilter = 'all';
+    let scanResults = [];
+
+    // Listen for messages from the plugin code
+    window.onmessage = (event) => {
+      const message = event.data.pluginMessage;
+
+      if (!message) return;
+
+      // Hide loading indicator and re-enable scan button for all cases
+      loadingIndicator.style.display = 'none';
+      scanButton.disabled = false;
+
+      if (message.type === 'collections-loaded') {
+        // Display collections
+        collectionsList.innerHTML = '';
+        console.log('Received collections:', message.collections);
+
+        if (!message.collections || message.collections.length === 0) {
+          collectionsList.innerHTML = '<div class="empty-state">No variable collections found</div>';
+          return;
+        }
+
+        // Sort collections by name
+        const sortedCollections = [...message.collections].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+
+        // Create collections list
+        sortedCollections.forEach(collection => {
+          const collectionItem = document.createElement('div');
+          collectionItem.className = 'collection-item';
+
+          const nameContainer = document.createElement('div');
+          nameContainer.className = 'name-container';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'collection-name';
+          nameSpan.textContent = collection.name;
+
+          nameContainer.appendChild(nameSpan);
+
+          const countSpan = document.createElement('span');
+          countSpan.className = 'collection-count';
+          countSpan.textContent = `${collection.variableCount} variables`;
+
+          collectionItem.appendChild(nameContainer);
+          collectionItem.appendChild(countSpan);
+          collectionsList.appendChild(collectionItem);
+        });
+      } else if (message.type === 'scan-results') {
+        // Display results
+        statusMessage.style.display = 'none';
+        optionsPanel.style.display = 'none';
+        resultsPanel.style.display = 'block';
+
+        // Store results
+        scanResults = message.results;
+
+        // Update counters
+        let totalUsed = 0;
+        let totalMissing = 0;
+
+        scanResults.forEach(result => {
+          totalUsed += result.hasVariables.length;
+          totalMissing += result.missingVariables.length;
+        });
+
+        usedVariablesCount.textContent = totalUsed;
+        missingVariablesCount.textContent = totalMissing;
+        nodesScannedCount.textContent = scanResults.length;
+
+        // Render results
+        renderResults(scanResults);
+      } else if (message.type === 'error') {
+        if (message.message === 'Please select at least one frame to scan') {
+          // Show error in the scan panel
+          scanError.style.display = 'block';
+          // Hide results panel if it's showing
+          resultsPanel.style.display = 'none';
+          // Show options panel
+          optionsPanel.style.display = 'block';
+        } else {
+          // Handle other errors as before
+          statusMessage.className = 'status status-error';
+          statusMessage.textContent = message.message;
+          statusMessage.style.display = 'block';
+          optionsPanel.style.display = 'block';
+          resultsPanel.style.display = 'none';
+        }
+      }
+    };
+
+    // Render results
+    const renderResults = (results) => {
+      // Clear previous results
+      resultsList.innerHTML = '';
+
+      // Filter results
+      let filteredResults = [...results];
+      if (currentFilter === 'missing') {
+        filteredResults = results.filter(result => result.missingVariables.length > 0);
+      } else if (currentFilter === 'used') {
+        filteredResults = results.filter(result => result.hasVariables.length > 0);
+      }
+
+      // Render each result
+      filteredResults.forEach(result => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'result-item';
+
+        // Node info
+        const nodeInfo = document.createElement('div');
+        nodeInfo.className = 'node-header';
+
+        const nodeLabel = document.createElement('span');
+        nodeLabel.className = 'node-name';
+        nodeLabel.textContent = `${result.nodeName}`;
+
+        const nodeType = document.createElement('span');
+        nodeType.className = 'node-type';
+        nodeType.textContent = result.nodeType;
+
+        nodeInfo.appendChild(nodeLabel);
+        nodeInfo.appendChild(nodeType);
+        resultItem.appendChild(nodeInfo);
+
+        // Variables section
+        if (result.hasVariables.length > 0) {
+          const hasVarsSection = document.createElement('div');
+          hasVarsSection.className = 'variable-section has-variables';
+
+          const hasVarsTitle = document.createElement('h4');
+          hasVarsTitle.textContent = 'Uses Variables:';
+          hasVarsSection.appendChild(hasVarsTitle);
+
+          const variablesList = document.createElement('ul');
+          variablesList.className = 'variable-list';
+
+          result.hasVariables.forEach(variable => {
+            const variableItem = document.createElement('li');
+            variableItem.className = 'variable-item';
+
+            const variableType = document.createElement('span');
+            let tagClass = 'tag ';
+            if (variable.type === 'COLOR') tagClass += 'color-tag';
+            else if (variable.type === 'TEXT') tagClass += 'text-tag';
+            else tagClass += 'responsive-tag';
+
+            variableType.className = tagClass;
+            variableType.textContent = variable.type;
+
+            const variableText = document.createTextNode(
+              ` ${variable.property}: ${variable.variableName}`
+            );
+
+            // Add value display if available
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'variable-value';
+            valueSpan.textContent = variable.value ? ` (${variable.value})` : '';
+
+            variableItem.appendChild(variableType);
+            variableItem.appendChild(variableText);
+            variableItem.appendChild(valueSpan);
+            variablesList.appendChild(variableItem);
+          });
+
+          hasVarsSection.appendChild(variablesList);
+          resultItem.appendChild(hasVarsSection);
+        }
+
+        // Missing Variables section
+        if (result.missingVariables.length > 0) {
+          const missingVarsSection = document.createElement('div');
+          missingVarsSection.className = 'variable-section missing-variables';
+
+          const missingVarsTitle = document.createElement('h4');
+          missingVarsTitle.textContent = 'Missing Variables:';
+          missingVarsSection.appendChild(missingVarsTitle);
+
+          const missingList = document.createElement('ul');
+          missingList.className = 'variable-list';
+
+          result.missingVariables.forEach(variable => {
+            const variableItem = document.createElement('li');
+            variableItem.className = 'variable-item';
+
+            const variableType = document.createElement('span');
+            let tagClass = 'tag ';
+            if (variable.type === 'COLOR') tagClass += 'color-tag';
+            else if (variable.type === 'TEXT') tagClass += 'text-tag';
+            else tagClass += 'responsive-tag';
+
+            variableType.className = tagClass;
+            variableType.textContent = variable.type;
+
+            const variableText = document.createTextNode(
+              ` ${variable.property}`
+            );
+
+            // Add value display if available
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'variable-value';
+            valueSpan.textContent = variable.value ? ` (${variable.value})` : '';
+
+            variableItem.appendChild(variableType);
+            variableItem.appendChild(variableText);
+            variableItem.appendChild(valueSpan);
+            missingList.appendChild(variableItem);
+          });
+
+          missingVarsSection.appendChild(missingList);
+          resultItem.appendChild(missingVarsSection);
+        }
+
+        resultsList.appendChild(resultItem);
+      });
+
+      // Show message if no results match filter
+      if (filteredResults.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'empty-state';
+        noResults.textContent = 'No nodes match the current filter';
+        resultsList.appendChild(noResults);
+      }
+    };
+
+    // Handle scan button click
+    const handleScan = () => {
+      // Hide error message when starting new scan
+      scanError.style.display = 'none';
+
+      // Show loading indicator
+      loadingIndicator.style.display = 'flex';
+      scanButton.disabled = true;
+
+      // Get scan options
+      const options = {
+        scanColors: document.getElementById('scanColors').checked,
+        scanText: document.getElementById('scanText').checked,
+        scanResponsive: document.getElementById('scanResponsive').checked
+      };
+
+      // Send message to plugin code
+      parent.postMessage({
+        pluginMessage: {
+          type: 'scan-variables',
+          options
+        }
+      }, '*');
+    };
+
+    // Handle scan again button click
+    const handleScanAgain = () => {
+      // Show options panel and hide results panel
+      optionsPanel.style.display = 'block';
+      resultsPanel.style.display = 'none';
+      statusMessage.style.display = 'none';
+    };
+
+    // Handle filter buttons
+    const handleFilter = (filter) => {
+      currentFilter = filter;
+
+      // Update active button styles
+      [showAll, showMissing, showUsed].forEach(btn => {
+        btn.className = 'tab';
+      });
+
+      if (filter === 'all') showAll.className = 'tab tab-active';
+      if (filter === 'missing') showMissing.className = 'tab tab-active';
+      if (filter === 'used') showUsed.className = 'tab tab-active';
+
+      // Re-render results list
+      renderResults(scanResults);
+    };
+
+    // Attach event listeners
+    scanButton.addEventListener('click', handleScan);
+    scanAgainButton.addEventListener('click', handleScanAgain);
+    showAll.addEventListener('click', () => handleFilter('all'));
+    showMissing.addEventListener('click', () => handleFilter('missing'));
+    showUsed.addEventListener('click', () => handleFilter('used'));
+  </script>
+</body>
+
+</html>
