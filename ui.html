@@ -10,12 +10,17 @@
       /* normal */
       --colour-text-strong: #15191E;
       --colour-text-default: #394655;
+      --colour-text-error: #A91A1F;
       /* brand colour */
       --brand-bg: #00807C;
       --brand-bg-hover: #00524F;
       --brand-bg-inverted: #E0F3F3;
       --brand-border-default: #00807C;
       --brand-text-default: #00615E;
+      /* border */
+      --border-default: #5D7083;
+      --border-weak: #CBD6E2;
+      --border-strong: #262D36;
     }
 
     body {
@@ -53,6 +58,7 @@
 
     .panel {
       background: white;
+      border: 1px solid var(--border-weak);
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 16px;
@@ -273,7 +279,7 @@
     .result-item {
       padding: 12px;
       background-color: #f9fafb;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border-weak);
       border-radius: 6px;
       margin-bottom: 8px;
       cursor: pointer;
@@ -281,17 +287,17 @@
     }
 
     .result-item:hover {
-      background-color: #e5e7eb;
+      border-color: var(--border-strong);
     }
 
     .result-item-selected {
-      background-color: #d1fae5;
-      border-color: #059669;
+      background-color: var(--brand-bg-inverted);
+      border-color: var(--brand-border-default);
     }
 
-    .result-item-selected:hover {
+    /* .result-item-selected:hover {
       background-color: #a7f3d0;
-    }
+    } */
 
     .node-header {
       display: flex;
@@ -320,6 +326,7 @@
     .variable-section h4 {
       font-size: 13px;
       margin: 0 0 4px 0;
+      font-weight: 500;
     }
 
     .has-variables h4 {
@@ -327,7 +334,8 @@
     }
 
     .missing-variables h4 {
-      color: #d97706;
+      font-weight: 500;
+      color: var(--colour-text-error);
     }
 
     .variable-list {
@@ -461,10 +469,9 @@
     }
 
     .error-message {
-      margin-top: 12px;
+      margin: 12px 0;
       padding: 8px 12px;
-      background-color: var(--figma-color-bg-danger);
-      color: var(--figma-color-text-danger);
+      color: var(--colour-text-error);
       border-radius: 6px;
       font-size: 13px;
       text-align: center;
@@ -609,11 +616,11 @@
       <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">
         All <span id="allNodesCount" class="tab-count">0</span>
       </button>
-      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">
-        Used <span id="usedNodesCount" class="tab-count">0</span>
-      </button>
       <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">
         Missing <span id="missingNodesCount" class="tab-count">0</span>
+      </button>
+      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">
+        Used <span id="usedNodesCount" class="tab-count">0</span>
       </button>
     </div>
 
