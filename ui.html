@@ -7,8 +7,15 @@
   <title>Emerald HUE Variable Scanner</title>
   <style>
     :root {
-      --brand: #00807C;
-      --brand-hover: #00524F;
+      /* normal */
+      --colour-text-strong: #15191E;
+      --colour-text-default: #394655;
+      /* brand colour */
+      --brand-bg: #00807C;
+      --brand-bg-hover: #00524F;
+      --brand-bg-inverted: #E0F3F3;
+      --brand-border-default: #00807C;
+      --brand-text-default: #00615E;
     }
 
     body {
@@ -16,7 +23,7 @@
       margin: 0;
       padding: 16px;
       background-color: #F7FAFD;
-      color: #394655;
+      color: var(--colour-text-default);
       font-size: 14px;
     }
 
@@ -35,7 +42,7 @@
 
     p {
       margin: 0 0 16px 0;
-      color: #394655;
+      color: var(--colour-text-default);
     }
 
     p a {
@@ -80,17 +87,17 @@
       align-items: center;
     }
 
-    button:focus {
+    /* button:focus {
       outline: 2px solid #059669;
-    }
+    } */
 
     .primary-button {
-      background-color: var(--brand);
+      background-color: var(--brand-bg);
       color: white;
     }
 
     .primary-button:hover {
-      background-color: var(--brand-hover);
+      background-color: var(--brand-bg-hover);
     }
 
     .secondary-button {
@@ -216,22 +223,47 @@
     }
 
     .tab {
-      padding: 6px 12px;
-      background-color: #f3f4f6;
-      border-radius: 4px;
+      padding: 8px 12px;
+      background-color: white;
+      /* color: var(--brand-text-default); */
+      border-radius: 8px;
       font-size: 14px;
-      border: none;
+      border: 0px solid;
       font-weight: 500;
       cursor: pointer;
     }
 
     .tab:hover {
-      background-color: #e5e7eb;
+      background-color: #F0F5FA;
+      border-color: #5D7083;
+      color: var(--colour-text-strong);
     }
 
     .tab-active {
-      background-color: #e5e7eb;
-      font-weight: 600;
+      background-color: var(--brand-bg-inverted);
+      color: var(--brand-text-default);
+      /* font-weight: 600; */
+      border: 1px solid var(--brand-border-default);
+    }
+
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #4f5f64;
+      color: white;
+      border-radius: 9999px;
+      font-size: 11px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+
+    .tab-active .tab-count {
+      background-color: var(--brand-bg);
+      color: white;
     }
 
     .results-list {
@@ -440,7 +472,7 @@
 
     .floating-panel {
       position: fixed;
-      bottom: 16px;
+      bottom: 12px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
@@ -450,7 +482,7 @@
       width: 100%;
       padding: 12px 20px;
       border-radius: 24px;
-      background-color: var(--brand);
+      background-color: var(--brand-bg);
       color: white;
       box-shadow: 0 3px 10px 2px rgba(0, 0, 0, 0.1);
     }
@@ -574,10 +606,15 @@
     </div>
 
     <div class="tabs">
-      <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">All</button>
-      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">Used Variables</button>
-      <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">Missing
-        Variables</button>
+      <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">
+        All <span id="allNodesCount" class="tab-count">0</span>
+      </button>
+      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">
+        Used <span id="usedNodesCount" class="tab-count">0</span>
+      </button>
+      <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">
+        Missing <span id="missingNodesCount" class="tab-count">0</span>
+      </button>
     </div>
 
     <!-- Detailed Results -->
@@ -604,6 +641,9 @@
     const showMissing = document.getElementById('showMissing');
     const showUsed = document.getElementById('showUsed');
     const scanError = document.getElementById('scanError');
+    const allNodesCount = document.getElementById('allNodesCount');
+    const usedNodesCount = document.getElementById('usedNodesCount');
+    const missingNodesCount = document.getElementById('missingNodesCount');
 
     // Initialize UI state
     optionsPanel.style.display = 'block';
@@ -683,6 +723,14 @@
         usedVariablesCount.textContent = totalUsed;
         missingVariablesCount.textContent = totalMissing;
         nodesScannedCount.textContent = scanResults.length;
+
+        // Update tab counts
+        const nodesWithUsedVars = scanResults.filter(result => result.hasVariables.length > 0).length;
+        const nodesWithMissingVars = scanResults.filter(result => result.missingVariables.length > 0).length;
+
+        allNodesCount.textContent = scanResults.length;
+        usedNodesCount.textContent = nodesWithUsedVars;
+        missingNodesCount.textContent = nodesWithMissingVars;
 
         // Render results
         renderResults(scanResults);
