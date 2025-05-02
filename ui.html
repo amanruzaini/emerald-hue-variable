@@ -144,7 +144,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
 
     .results-panel {
@@ -239,6 +239,21 @@
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       margin-bottom: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .result-item:hover {
+      background-color: #e5e7eb;
+    }
+
+    .result-item-selected {
+      background-color: #d1fae5;
+      border-color: #059669;
+    }
+
+    .result-item-selected:hover {
+      background-color: #a7f3d0;
     }
 
     .node-header {
@@ -421,10 +436,7 @@
 </head>
 
 <body>
-  <div class="header" style="display: none;">
-    <h4>Emerald HUE have published a few collection of variables that you can use. Now you can easily design in dark
-      mode,
-      high contrast mode and more.</h4>
+  <div class="header">
     <p>This plugin will scan the selected frames and show you which variables are used and which are missing.</p>
     <p><a href="https://confluence.petronas.com/display/EmeraldHUE/Emerald+HUE" target="_blank">Read more about Emerald
         HUE</a> <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -504,7 +516,7 @@
 
   </div>
 
-  <div class="button-group panel" style="margin-top: 20px;">
+  <div id="scanAgainPanel" class="button-group panel" style="margin-top: 20px;">
     <button id="scanAgainButton" class="secondary-button" tabindex="0" aria-label="Scan again">
       Scan Again
     </button>
@@ -518,7 +530,7 @@
     <h2>Scan Results</h2>
 
     <!-- Results Summary -->
-    <div class="summary">
+    <div class="summary hidden">
       <div class="metric used">
         <h3>Variables Used</h3>
         <p id="usedVariablesCount">0</p>
@@ -537,9 +549,9 @@
 
     <div class="tabs">
       <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">All</button>
+      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">Used Variables</button>
       <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">Missing
         Variables</button>
-      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">Used Variables</button>
     </div>
 
     <!-- Detailed Results -->
@@ -552,6 +564,7 @@
     // Define elements
     const scanButton = document.getElementById('scanButton');
     const scanAgainButton = document.getElementById('scanAgainButton');
+    const scanAgainPanel = document.getElementById('scanAgainPanel');
     const statusMessage = document.getElementById('statusMessage');
     const optionsPanel = document.getElementById('optionsPanel');
     const resultsPanel = document.getElementById('resultsPanel');
@@ -569,6 +582,7 @@
     // Initialize UI state
     optionsPanel.style.display = 'block';
     resultsPanel.style.display = 'none';
+    scanAgainPanel.style.display = 'none';
     statusMessage.style.display = 'none';
 
     // Filter states
@@ -627,7 +641,7 @@
         statusMessage.style.display = 'none';
         optionsPanel.style.display = 'none';
         resultsPanel.style.display = 'block';
-
+        scanAgainPanel.style.display = 'block';
         // Store results
         scanResults = message.results;
 
@@ -646,6 +660,26 @@
 
         // Render results
         renderResults(scanResults);
+      } else if (message.type === 'node-selected') {
+        // Handle node selection feedback
+        if (message.success) {
+          // Clear previous selection styling
+          const selectedItems = document.querySelectorAll('.result-item-selected');
+          selectedItems.forEach(item => {
+            item.classList.remove('result-item-selected');
+          });
+
+          // Add selection style to the selected node
+          const selectedNode = document.querySelector(`[data-node-id="${message.nodeId}"]`);
+          if (selectedNode) {
+            selectedNode.classList.add('result-item-selected');
+            // Scroll the selected node into view
+            selectedNode.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest'
+            });
+          }
+        }
       } else if (message.type === 'error') {
         if (message.message === 'Please select at least one frame to scan') {
           // Show error in the scan panel
@@ -654,6 +688,7 @@
           resultsPanel.style.display = 'none';
           // Show options panel
           optionsPanel.style.display = 'block';
+          scanAgainPanel.style.display = 'none';
         } else {
           // Handle other errors as before
           statusMessage.className = 'status status-error';
@@ -661,6 +696,7 @@
           statusMessage.style.display = 'block';
           optionsPanel.style.display = 'block';
           resultsPanel.style.display = 'none';
+          scanAgainPanel.style.display = 'none';
         }
       }
     };
@@ -682,6 +718,31 @@
       filteredResults.forEach(result => {
         const resultItem = document.createElement('div');
         resultItem.className = 'result-item';
+        resultItem.tabIndex = 0;
+        resultItem.setAttribute('aria-label', `Select node: ${result.nodeName}`);
+        resultItem.setAttribute('data-node-id', result.nodeId);
+
+        // Add click and keyboard event handlers for node selection
+        resultItem.addEventListener('click', () => {
+          parent.postMessage({
+            pluginMessage: {
+              type: 'select-node',
+              nodeId: result.nodeId
+            }
+          }, '*');
+        });
+
+        resultItem.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            parent.postMessage({
+              pluginMessage: {
+                type: 'select-node',
+                nodeId: result.nodeId
+              }
+            }, '*');
+          }
+        });
 
         // Node info
         const nodeInfo = document.createElement('div');
@@ -731,7 +792,7 @@
             // Add value display if available
             const valueSpan = document.createElement('span');
             valueSpan.className = 'variable-value';
-            valueSpan.textContent = variable.value ? ` (${variable.value})` : '';
+            valueSpan.textContent = variable.value ? ` (${variable.value}) ` : '';
 
             variableItem.appendChild(variableType);
             variableItem.appendChild(variableText);
@@ -830,6 +891,7 @@
       optionsPanel.style.display = 'block';
       resultsPanel.style.display = 'none';
       statusMessage.style.display = 'none';
+      scanAgainPanel.style.display = 'none';
     };
 
     // Handle filter buttons

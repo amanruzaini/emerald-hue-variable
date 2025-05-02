@@ -1,3 +1,4 @@
+// @ts-nocheck
 // This file contains a Figma plugin to scan selected frames for design system variable usage
 // Minimal type definitions for Figma API
 // declare const figma: {
@@ -95,6 +96,15 @@ type ScanOptions = {
   scanResponsive: boolean;
 };
 
+// Helper type for variable usage
+type VariableUsage = {
+  type: VariableType;
+  property: string;
+  variableName: string; // Always include this property
+  value?: string;
+};
+
+// Update the VariableUsageResult type
 type VariableUsageResult = {
   nodeId: string;
   nodeName: string;
@@ -104,12 +114,7 @@ type VariableUsageResult = {
     property: string;
     value?: string;
   }[];
-  hasVariables: {
-    type: VariableType;
-    property: string;
-    variableName: string;
-    value?: string;
-  }[];
+  hasVariables: VariableUsage[];
 };
 
 // Types for variable handling
@@ -344,7 +349,7 @@ function isVariableAliasValue(value: any): value is VariableAliasValue {
 function getVariableName(variableId: string): string {
   const varData = variableMap[variableId];
   if (!varData?.variable) return 'Unknown';
-
+  // return `${varData.variable.name}`;
   return `${varData.variable.collectionName}/${varData.variable.name}`;
 }
 
@@ -388,6 +393,32 @@ figma.ui.onmessage = async (msg: { type: string; options?: ScanOptions }) => {
       await scanNode(node, allVariableCollections, options, results);
     }
     
+    // Debug logging for the results being sent to UI
+    console.log('=== DEBUG: SCAN RESULTS BEING SENT TO UI ===');
+    console.log('Total results:', results.length);
+    
+    // Log details of variables found (up to 5 for readability)
+    const debugSample = results.slice(0, 5);
+    for (const result of debugSample) {
+      console.log('Node:', result.nodeName, '(type:', result.nodeType, ')');
+      
+      // Show used variables
+      if (result.hasVariables.length > 0) {
+        console.log('  HAS VARIABLES:', result.hasVariables.length);
+        for (const v of result.hasVariables) {
+          console.log(`    ${v.type} - ${v.property}: "${v.variableName}" (${v.value || 'no value'})`);
+        }
+      }
+      
+      // Show missing variables
+      if (result.missingVariables.length > 0) {
+        console.log('  MISSING VARIABLES:', result.missingVariables.length);
+        for (const v of result.missingVariables) {
+          console.log(`    ${v.type} - ${v.property}: ${v.value || 'no value'}`);
+        }
+      }
+    }
+    
     // Send results back to UI
     figma.ui.postMessage({
       type: 'scan-results',
@@ -422,96 +453,103 @@ async function getBoundVariable(node: SceneNode, property: string): Promise<Vari
 
 // Helper function to format variable name to string, using stored variables
 async function formatVariableName(
-  variable: Variable | VariableAlias | null,
-  collections: VariableCollection[]
+  variable: Variable | VariableAlias | null | Array<any>
 ): Promise<string> {
   if (!variable) {
-    console.log('Variable is null');
-    return 'Unknown';
+    console.log('formatVariableName: Received null variable.');
+    return 'Unknown (null)';
   }
   
+  console.log('formatVariableName: Processing variable object:', JSON.stringify(variable, null, 2));
+
+  // Handle array case - if variable is an array, use the first item
+  if (Array.isArray(variable)) {
+    if (variable.length === 0) {
+      console.log('formatVariableName: Received empty array.');
+      return 'Unknown (empty array)';
+    }
+    console.log('formatVariableName: Received array, using first item.');
+    variable = variable[0];
+  }
+
+  // Extract the variable ID
+  let variableId: string | null = null;
+  
+  // Case 1: Variable Alias (object with type: 'VARIABLE_ALIAS' and id)
+  if (typeof variable === 'object' && 'type' in variable && variable.type === 'VARIABLE_ALIAS' && 'id' in variable) {
+    variableId = variable.id;
+    console.log(`formatVariableName: Identified as Alias. Target ID: ${variableId}`);
+  } 
+  // Case 2: Direct Variable Reference (object with variableId)
+  else if (typeof variable === 'object' && 'variableId' in variable) {
+    variableId = String(variable.variableId);
+    console.log(`formatVariableName: Identified as Direct Reference (variableId). Target ID: ${variableId}`);
+  }
+  // Case 3: Direct Variable Object (object with id, but not an alias)
+  else if (typeof variable === 'object' && 'id' in variable && (!('type' in variable) || variable.type !== 'VARIABLE_ALIAS')) {
+    variableId = String(variable.id);
+    console.log(`formatVariableName: Identified as Direct Variable Object (id). Target ID: ${variableId}`);
+  }
+  // Case 4: Simple string ID
+  else if (typeof variable === 'string') {
+    variableId = variable;
+    console.log(`formatVariableName: Received raw string ID. Target ID: ${variableId}`);
+  }
+
+  if (!variableId) {
+    console.log('formatVariableName: Could not extract a usable ID from variable object:', JSON.stringify(variable, null, 2));
+    return 'Unknown (ID extraction failed)';
+  }
+
   try {
-    console.log('Formatting variable:', {
-      variable,
-      type: typeof variable,
-      hasType: 'type' in variable,
-      hasId: 'id' in variable,
-      hasName: 'name' in variable
-    });
-
-    // If it's an alias, get both ID and name if possible
-    if ('type' in variable && variable.type === 'VARIABLE_ALIAS' && 'id' in variable) {
-      const fullId = variable.id;
-      console.log('Processing variable alias with full ID:', fullId);
-
-      // Try different ID formats
-      const possibleIds = [
-        fullId,                                          // Full ID as is
-        fullId.split('/')[0],                           // ID without the suffix
-        fullId.replace('VariableID:', ''),              // ID without prefix
-        fullId.split('/')[0].replace('VariableID:', '') // Clean ID
-      ];
-
-      console.log('Trying possible IDs:', possibleIds);
-
-      // Try each possible ID format
-      for (const id of possibleIds) {
-        const mapVar = variableMap[id];
-        if (mapVar?.variable) {
-          const varData = mapVar.variable;
-          console.log('Found in variable map with ID:', id, varData);
-          return `${varData.name} (${varData.collectionName}) [${id}]`;
-        }
-      }
-
-      // If not found in map, return the cleanest ID we have
-      const cleanId = fullId.split('/')[0].replace('VariableID:', '');
-      return `Variable [${cleanId}]`;
+    // Clean the variable ID - remove mode ID part after the slash if present
+    let cleanId = variableId;
+    
+    // Remove VariableID: prefix
+    if (cleanId.startsWith('VariableID:')) {
+      cleanId = cleanId.replace('VariableID:', '');
     }
-
-    // For direct variables with variableId
-    if ('variableId' in variable) {
-      const variableId = String(variable.variableId);
-      console.log('Processing direct variable with variableId:', variableId);
-      
-      const mapVar = variableMap[variableId] || variableMap[`VariableID:${variableId}`];
-      if (mapVar?.variable) {
-        const varData = mapVar.variable;
-        return `${varData.name} (${varData.collectionName}) [${variableId}]`;
-      }
-      return `Variable [${variableId}]`;
+    
+    // Remove mode ID part (after the slash) if present
+    if (cleanId.includes('/')) {
+      cleanId = cleanId.split('/')[0];
     }
-
-    // For variables with id
-    if ('id' in variable && variable.id) {
-      const id = String(variable.id);
-      console.log('Processing variable with id:', id);
-      
-      const possibleIds = [
-        id,
-        id.split('/')[0],
-        id.replace('VariableID:', ''),
-        id.split('/')[0].replace('VariableID:', '')
-      ];
-
-      for (const possibleId of possibleIds) {
-        const mapVar = variableMap[possibleId];
-        if (mapVar?.variable) {
-          const varData = mapVar.variable;
-          return `${varData.name} (${varData.collectionName}) [${possibleId}]`;
-        }
+    
+    console.log(`formatVariableName: Cleaned variable ID: ${cleanId}`);
+    
+    // Try to get the variable directly from Figma API
+    const variableObj = await figma.variables.getVariableByIdAsync(cleanId);
+    
+    if (variableObj) {
+      // Return just the variable name without the collection name
+      console.log(`formatVariableName: Successfully retrieved variable: ${variableObj.name}`);
+      return variableObj.name;
+    } else {
+      // If the variable isn't found, try the map as fallback
+      const mapEntry = variableMap[cleanId];
+      if (mapEntry?.variable) {
+        const varData = mapEntry.variable;
+        // Return just the variable name
+        console.log(`formatVariableName: Found match in variableMap fallback with ID '${cleanId}'. Resolved name: ${varData.name}`);
+        return varData.name;
       }
       
-      const cleanId = id.split('/')[0].replace('VariableID:', '');
-      return `Variable [${cleanId}]`;
+      // Try with the original ID as fallback
+      const mapEntryOriginal = variableMap[variableId];
+      if (mapEntryOriginal?.variable) {
+        const varData = mapEntryOriginal.variable;
+        // Return just the variable name
+        console.log(`formatVariableName: Found match in variableMap fallback with original ID. Resolved name: ${varData.name}`);
+        return varData.name;
+      }
     }
-
-    console.log('Could not find variable ID. Final variable state:', variable);
-    return 'Unknown';
+    
+    // If all else fails, return the ID
+    console.log(`formatVariableName: Could not find variable. Returning ID: ${cleanId}`);
+    return `Unknown (ID: ${cleanId.substring(0, 8)}...)`;
   } catch (error) {
-    console.error('Error getting variable ID:', error);
-    console.log('Variable that caused error:', variable);
-    return 'Unknown';
+    console.error('Error retrieving variable:', error);
+    return `Error (ID: ${variableId.substring(0, 8)}...)`;
   }
 }
 
@@ -534,23 +572,41 @@ async function scanNode(
   };
 
   // Check for color variables
-  if (options.scanColors && 'fills' in node) {
-    await checkForColorVariables(node, nodeResult, allVariableCollections);
+  if (options.scanColors && ('fills' in node || 'strokes' in node)) {
+      await checkForColorVariables(
+          node as SceneNode & { fills?: readonly Paint[] | PluginAPI['mixed'], strokes?: readonly Paint[] | PluginAPI['mixed'] },
+          nodeResult,
+          // allVariableCollections // Pass if needed by called function
+      );
   }
+
 
   // Check for text variables
   if (options.scanText && node.type === 'TEXT') {
-    await checkForTextVariables(node as TextNode, nodeResult, allVariableCollections);
+    await checkForTextVariables(node as TextNode, nodeResult /*, allVariableCollections*/);
   }
 
-  // Check for responsive variables
-  if (options.scanResponsive && 'width' in node && 'height' in node) {
-    await checkForResponsiveVariables(
-      node as SceneNode & { width: number | VariableAlias, height: number | VariableAlias }, 
-      nodeResult, 
-      allVariableCollections
-    );
+  // Check for responsive variables (width, height, padding)
+  if (options.scanResponsive) {
+    // Check properties that might have responsive variables
+    const responsiveProps: (keyof SceneNode)[] = ['width', 'height', 'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 'itemSpacing', 'horizontalPadding', 'verticalPadding'];
+    let hasResponsiveProps = false;
+    for (const prop of responsiveProps) {
+        if (prop in node) {
+            hasResponsiveProps = true;
+            break;
+        }
+    }
+
+    if (hasResponsiveProps) {
+        await checkForResponsiveVariables(
+            node as SceneNode, // Cast as base SceneNode, specific checks happen inside
+            nodeResult
+            // allVariableCollections // Pass if needed by called function
+        );
+    }
   }
+
 
   // Add to results if we found missing or used variables
   if (nodeResult.missingVariables.length > 0 || nodeResult.hasVariables.length > 0) {
@@ -560,98 +616,109 @@ async function scanNode(
   // Recursively scan children if node is a parent
   if ('children' in node && node.children) {
     for (const child of node.children) {
-      await scanNode(child, allVariableCollections, options, results);
+      await scanNode(child, allVariableCollections, options, results); // Pass collections down
     }
   }
 }
 
 // Function to check for color variables
 async function checkForColorVariables(
-  node: SceneNode & { fills?: readonly Paint[] | PluginAPI['mixed'] }, 
-  result: VariableUsageResult,
-  allVariableCollections: VariableCollection[]
+  node: SceneNode & { fills?: readonly Paint[] | PluginAPI['mixed'], strokes?: readonly Paint[] | PluginAPI['mixed'] },
+  result: VariableUsageResult
 ): Promise<void> {
-  if (!node.fills || node.fills === figma.mixed) return;
-
-  console.log('Checking color variables for node:', node.name);
-  console.log('Node fills:', node.fills);
-
-  // Check fill properties
-  for (const fill of node.fills as Paint[]) {
-    if (fill.type === 'SOLID') {
-      console.log('Checking solid fill:', fill);
-      
-      // Check if color is bound to a variable
-      const boundVariable = await getBoundVariable(node, 'fills');
-      console.log('Found bound variable for fills:', boundVariable);
-      
-      if (boundVariable) {
-        const variableName = await formatVariableName(boundVariable, allVariableCollections);
-        console.log('Formatted variable name:', variableName);
-        
-        result.hasVariables.push({
-          type: 'COLOR',
-          property: 'fill',
-          variableName: variableName,
-          value: fill.color ? 
-            `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)})` : 
-            'Unknown'
-        });
-      } else {
-        result.missingVariables.push({
-          type: 'COLOR',
-          property: 'fill',
-          value: fill.color ? 
-            `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)})` : 
-            'Unknown'
-        });
-      }
-    }
-  }
   
-  // Check stroke properties if they exist
-  if ('strokes' in node && node.strokes && Array.isArray(node.strokes)) {
-    console.log('Checking strokes for node:', node.name);
-    console.log('Node strokes:', node.strokes);
-    
-    for (const stroke of node.strokes as Paint[]) {
-      if (stroke.type === 'SOLID') {
-        console.log('Checking solid stroke:', stroke);
-        
-        const boundVariable = await getBoundVariable(node, 'strokes');
-        console.log('Found bound variable for strokes:', boundVariable);
-        
-        if (boundVariable) {
-          const variableName = await formatVariableName(boundVariable, allVariableCollections);
-          console.log('Formatted variable name:', variableName);
-          
-          result.hasVariables.push({
-            type: 'COLOR',
-            property: 'stroke',
-            variableName: variableName,
-            value: stroke.color ? 
-              `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)})` : 
-              'Unknown'
-          });
-        } else {
-          result.missingVariables.push({
-            type: 'COLOR',
-            property: 'stroke',
-            value: stroke.color ? 
-              `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)})` : 
-              'Unknown'
-          });
-        }
+  // Check fill properties
+  if (node.fills && node.fills !== figma.mixed && Array.isArray(node.fills)) {
+      for (const fill of node.fills) {
+          if (fill.type === 'SOLID') {
+              const boundVariable = await getBoundVariable(node, `fills[${node.fills.indexOf(fill)}]`); // Try specific index binding
+              if (boundVariable) {
+                  const variableName = await formatVariableName(boundVariable);
+                  result.hasVariables.push({
+                      type: 'COLOR',
+                      property: 'fill',
+                      variableName: variableName,
+                      value: fill.color ? `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)})` : 'Unknown'
+                  });
+              } else {
+                   const generalFillBoundVar = await getBoundVariable(node, 'fills'); // Check general fills binding
+                   if (!generalFillBoundVar) { // Only add missing if no general or specific binding found
+                       result.missingVariables.push({
+                           type: 'COLOR',
+                           property: 'fill',
+                           value: fill.color ? `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)})` : 'Unknown'
+                       });
+                   } else {
+                        // Show actual color value for general binding
+                        const variableName = await formatVariableName(generalFillBoundVar);
+                        // Avoid duplicates if multiple fills use the same general binding
+                        if (!result.hasVariables.some(v => v.property === 'fill' && v.variableName === variableName)) {
+                            // Extract the fill's actual color value
+                            const colorValue = fill.color 
+                              ? `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(fill.color.g * 255)}, ${Math.round(fill.color.b * 255)})` 
+                              : 'Unknown';
+                            
+                            result.hasVariables.push({
+                                type: 'COLOR',
+                                property: 'fill',
+                                variableName: variableName,
+                                value: colorValue // Show actual color value instead of "Bound (General)"
+                            });
+                        }
+                   }
+              }
+          }
       }
-    }
+  }
+
+  // Check stroke properties
+  if (node.strokes && node.strokes !== figma.mixed && Array.isArray(node.strokes)) {
+      for (const stroke of node.strokes) {
+          if (stroke.type === 'SOLID') {
+              const boundVariable = await getBoundVariable(node, `strokes[${node.strokes.indexOf(stroke)}]`); // Try specific index
+              if (boundVariable) {
+                  const variableName = await formatVariableName(boundVariable);
+                  result.hasVariables.push({
+                      type: 'COLOR',
+                      property: 'stroke',
+                      variableName: variableName,
+                      value: stroke.color ? `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)})` : 'Unknown'
+                  });
+              } else {
+                  const generalStrokeBoundVar = await getBoundVariable(node, 'strokes'); // Check general strokes binding
+                  if (!generalStrokeBoundVar) { // Only add missing if no general or specific binding found
+                      result.missingVariables.push({
+                          type: 'COLOR',
+                          property: 'stroke',
+                          value: stroke.color ? `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)})` : 'Unknown'
+                      });
+                  } else {
+                        const variableName = await formatVariableName(generalStrokeBoundVar);
+                        if (!result.hasVariables.some(v => v.property === 'stroke' && v.variableName === variableName)) {
+                            // Extract the stroke's actual color value
+                            const colorValue = stroke.color 
+                              ? `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(stroke.color.g * 255)}, ${Math.round(stroke.color.b * 255)})` 
+                              : 'Unknown';
+                            
+                            result.hasVariables.push({
+                                type: 'COLOR',
+                                property: 'stroke',
+                                variableName: variableName,
+                                value: colorValue // Show actual color value instead of "Bound (General)"
+                            });
+                        }
+                  }
+              }
+          }
+      }
   }
 }
 
 // Function to check for text variables
 async function checkForTextVariables(
   node: TextNode, 
-  result: VariableUsageResult,
-  allVariableCollections: VariableCollection[]
+  result: VariableUsageResult
+  // allVariableCollections: VariableCollection[] // Removed
 ): Promise<void> {
   // Check font size
   const fontSizeVariable = await getBoundVariable(node, 'fontSize');
@@ -659,119 +726,124 @@ async function checkForTextVariables(
     result.hasVariables.push({
       type: 'TEXT',
       property: 'fontSize',
-      variableName: await formatVariableName(fontSizeVariable, allVariableCollections),
-      value: String(node.fontSize) + 'px'
+      variableName: await formatVariableName(fontSizeVariable),
+      value: typeof node.fontSize === 'number' ? `${node.fontSize}px` : 'Mixed/Unknown'
     });
-  } else {
+  } else if (node.fontSize !== figma.mixed) { // Only report missing if not mixed
     result.missingVariables.push({
       type: 'TEXT',
       property: 'fontSize',
-      value: String(node.fontSize) + 'px'
+      value: typeof node.fontSize === 'number' ? `${node.fontSize}px` : 'Mixed/Unknown'
     });
   }
   
   // Check line height
   const lineHeightVariable = await getBoundVariable(node, 'lineHeight');
-  if (lineHeightVariable) {
-    let lineHeightValue = 'Unknown';
-    if (typeof node.lineHeight === 'object' && 'value' in node.lineHeight) {
-      const lineHeight = node.lineHeight as { value: number; unit: string };
-      lineHeightValue = lineHeight.unit === 'PIXELS' 
-        ? `${lineHeight.value}px` 
-        : `${lineHeight.value}%`;
+   let lineHeightValue = 'Auto'; // Default for Figma
+    if (node.lineHeight !== figma.mixed) {
+        if (typeof node.lineHeight === 'object') {
+            if ('value' in node.lineHeight) {
+                 const lh = node.lineHeight as { value: number; unit: string };
+                 lineHeightValue = lh.unit === 'PIXELS' ? `${lh.value}px` : `${lh.value}%`;
+            }
+            // Could be other object types like 'AUTO' symbol, handle if necessary
+        }
+    } else {
+        lineHeightValue = 'Mixed';
     }
-    
+
+
+  if (lineHeightVariable) {    
     result.hasVariables.push({
       type: 'TEXT',
       property: 'lineHeight',
-      variableName: await formatVariableName(lineHeightVariable, allVariableCollections),
+      variableName: await formatVariableName(lineHeightVariable),
       value: lineHeightValue
     });
-  } else {
-    let lineHeightValue = 'Unknown';
-    if (typeof node.lineHeight === 'object' && 'value' in node.lineHeight) {
-      const lineHeight = node.lineHeight as { value: number; unit: string };
-      lineHeightValue = lineHeight.unit === 'PIXELS' 
-        ? `${lineHeight.value}px` 
-        : `${lineHeight.value}%`;
-    }
-    
+  } else if (node.lineHeight !== figma.mixed) { // Only report missing if not mixed
     result.missingVariables.push({
       type: 'TEXT',
       property: 'lineHeight',
       value: lineHeightValue
     });
   }
+
+  // Add checks for other text properties if needed (e.g., letterSpacing, paragraphSpacing)
+  // Example for letterSpacing:
+   const letterSpacingVariable = await getBoundVariable(node, 'letterSpacing');
+   let letterSpacingValue = '0'; // Default assumption
+    if (node.letterSpacing !== figma.mixed && typeof node.letterSpacing === 'object' && 'value' in node.letterSpacing) {
+         const ls = node.letterSpacing as { value: number; unit: string };
+         letterSpacingValue = ls.unit === 'PIXELS' ? `${ls.value}px` : `${ls.value}%`;
+    } else if (node.letterSpacing === figma.mixed) {
+         letterSpacingValue = 'Mixed';
+    }
+
+   if (letterSpacingVariable) {
+       result.hasVariables.push({
+           type: 'TEXT',
+           property: 'letterSpacing',
+           variableName: await formatVariableName(letterSpacingVariable),
+           value: letterSpacingValue
+       });
+   } else if (node.letterSpacing !== figma.mixed) {
+        result.missingVariables.push({
+           type: 'TEXT',
+           property: 'letterSpacing',
+           value: letterSpacingValue
+       });
+   }
 }
 
 // Function to check for responsive variables
 async function checkForResponsiveVariables(
-  node: SceneNode & { width: number | VariableAlias, height: number | VariableAlias }, 
-  result: VariableUsageResult,
-  allVariableCollections: VariableCollection[]
+  node: SceneNode, 
+  result: VariableUsageResult
 ): Promise<void> {
-  // Check width
-  const widthVariable = await getBoundVariable(node, 'width');
-  if (widthVariable) {
-    console.log('Found width variable:', widthVariable); // Debug log
-    const variableName = await formatVariableName(widthVariable, allVariableCollections);
-    console.log('Formatted width variable name:', variableName); // Debug log
-    
-    result.hasVariables.push({
-      type: 'RESPONSIVE',
-      property: 'width',
-      variableName: variableName,
-      value: `${typeof node.width === 'number' ? Math.round(node.width) : 'Variable'}px`
-    });
-  } else {
-    result.missingVariables.push({
-      type: 'RESPONSIVE',
-      property: 'width',
-      value: `${typeof node.width === 'number' ? Math.round(node.width) : 'Variable'}px`
-    });
-  }
   
-  // Check height
-  const heightVariable = await getBoundVariable(node, 'height');
-  if (heightVariable) {
-    console.log('Found height variable:', heightVariable); // Debug log
-    const variableName = await formatVariableName(heightVariable, allVariableCollections);
-    console.log('Formatted height variable name:', variableName); // Debug log
-    
-    result.hasVariables.push({
-      type: 'RESPONSIVE',
-      property: 'height',
-      variableName: variableName,
-      value: `${typeof node.height === 'number' ? Math.round(node.height) : 'Variable'}px`
-    });
-  } else {
-    result.missingVariables.push({
-      type: 'RESPONSIVE',
-      property: 'height',
-      value: `${typeof node.height === 'number' ? Math.round(node.height) : 'Variable'}px`
-    });
-  }
+  // Use string array for property names without specifying they're keyof SceneNode
+  const responsiveProps = [
+    'width', 'height', 
+    'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 
+    'horizontalPadding', 'verticalPadding', 'itemSpacing'
+  ];
   
-  // Check for spacing/padding/margin if applicable
-  if ('paddingLeft' in node) {
-    const paddingVariable = await getBoundVariable(node, 'paddingLeft');
-    if (paddingVariable) {
-      console.log('Found padding variable:', paddingVariable); // Debug log
-      const variableName = await formatVariableName(paddingVariable, allVariableCollections);
-      console.log('Formatted padding variable name:', variableName); // Debug log
-      
-      result.hasVariables.push({
-        type: 'RESPONSIVE',
-        property: 'padding',
-        variableName: variableName,
-        value: `${node.paddingLeft}px`
-      });
-    } else {
-      result.missingVariables.push({
-        type: 'RESPONSIVE',
-        property: 'padding',
-        value: `${node.paddingLeft}px`
-      });
+  // Check each property that might be bound to a variable
+  for (const propName of responsiveProps) {
+    // @ts-ignore - Property access is validated at runtime
+    if (propName in node) {
+      // @ts-ignore - Using any to bypass type checking
+      const value = (node as any)[propName];
+      if (value === figma.mixed) continue; // Skip mixed values
+
+      const boundVariable = await getBoundVariable(node, propName);
+      let displayValue = 'Unknown';
+
+      if (typeof value === 'number') {
+          displayValue = `${Math.round(value)}px`;
+      } else if (typeof value === 'object' && value !== null && 'value' in value && 'unit' in value) {
+          // Handle complex values like padding with units if necessary
+          displayValue = `${value.value}${value.unit === 'PERCENT' ? '%' : 'px'}`;
+      } else if (typeof value === 'string') {
+          // Handle string values if applicable
+          displayValue = value;
+      }
+
+      if (boundVariable) {
+          const variableName = await formatVariableName(boundVariable);
+          result.hasVariables.push({
+              type: 'RESPONSIVE',
+              property: propName,
+              variableName: variableName,
+              value: displayValue
+          });
+      } else {
+           result.missingVariables.push({
+              type: 'RESPONSIVE',
+              property: propName,
+              value: displayValue
+          });
+      }
     }
   }
 } 
