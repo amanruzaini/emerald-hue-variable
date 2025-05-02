@@ -441,7 +441,8 @@
     .floating-panel {
       position: fixed;
       bottom: 16px;
-      right: 16px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 1000;
     }
 
@@ -451,7 +452,7 @@
       border-radius: 24px;
       background-color: var(--brand);
       color: white;
-      box-shadow: -1px 3px 10px 4px #ccc;
+      box-shadow: 0 3px 10px 2px rgba(0, 0, 0, 0.1);
     }
   </style>
 </head>
