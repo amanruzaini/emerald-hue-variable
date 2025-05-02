@@ -834,51 +834,7 @@
         nodeInfo.appendChild(nodeType);
         resultItem.appendChild(nodeInfo);
 
-        // Variables section
-        if (result.hasVariables.length > 0) {
-          const hasVarsSection = document.createElement('div');
-          hasVarsSection.className = 'variable-section has-variables';
-
-          const hasVarsTitle = document.createElement('h4');
-          hasVarsTitle.textContent = 'Uses Variables:';
-          hasVarsSection.appendChild(hasVarsTitle);
-
-          const variablesList = document.createElement('ul');
-          variablesList.className = 'variable-list';
-
-          result.hasVariables.forEach(variable => {
-            const variableItem = document.createElement('li');
-            variableItem.className = 'variable-item';
-
-            const variableType = document.createElement('span');
-            let tagClass = 'tag ';
-            if (variable.type === 'COLOR') tagClass += 'color-tag';
-            else if (variable.type === 'TEXT') tagClass += 'text-tag';
-            else tagClass += 'responsive-tag';
-
-            variableType.className = tagClass;
-            variableType.textContent = variable.type;
-
-            const variableText = document.createTextNode(
-              ` ${variable.property}: ${variable.variableName}`
-            );
-
-            // Add value display if available
-            const valueSpan = document.createElement('span');
-            valueSpan.className = 'variable-value';
-            valueSpan.textContent = variable.value ? ` (${variable.value}) ` : '';
-
-            variableItem.appendChild(variableType);
-            variableItem.appendChild(variableText);
-            variableItem.appendChild(valueSpan);
-            variablesList.appendChild(variableItem);
-          });
-
-          hasVarsSection.appendChild(variablesList);
-          resultItem.appendChild(hasVarsSection);
-        }
-
-        // Missing Variables section
+        // Missing Variables section (moved first)
         if (result.missingVariables.length > 0) {
           const missingVarsSection = document.createElement('div');
           missingVarsSection.className = 'variable-section missing-variables';
@@ -920,6 +876,50 @@
 
           missingVarsSection.appendChild(missingList);
           resultItem.appendChild(missingVarsSection);
+        }
+
+        // Variables section (moved second)
+        if (result.hasVariables.length > 0) {
+          const hasVarsSection = document.createElement('div');
+          hasVarsSection.className = 'variable-section has-variables';
+
+          const hasVarsTitle = document.createElement('h4');
+          hasVarsTitle.textContent = 'Uses Variables:';
+          hasVarsSection.appendChild(hasVarsTitle);
+
+          const variablesList = document.createElement('ul');
+          variablesList.className = 'variable-list';
+
+          result.hasVariables.forEach(variable => {
+            const variableItem = document.createElement('li');
+            variableItem.className = 'variable-item';
+
+            const variableType = document.createElement('span');
+            let tagClass = 'tag ';
+            if (variable.type === 'COLOR') tagClass += 'color-tag';
+            else if (variable.type === 'TEXT') tagClass += 'text-tag';
+            else tagClass += 'responsive-tag';
+
+            variableType.className = tagClass;
+            variableType.textContent = variable.type;
+
+            const variableText = document.createTextNode(
+              ` ${variable.property}: ${variable.variableName}`
+            );
+
+            // Add value display if available
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'variable-value';
+            valueSpan.textContent = variable.value ? ` (${variable.value}) ` : '';
+
+            variableItem.appendChild(variableType);
+            variableItem.appendChild(variableText);
+            variableItem.appendChild(valueSpan);
+            variablesList.appendChild(variableItem);
+          });
+
+          hasVarsSection.appendChild(variablesList);
+          resultItem.appendChild(hasVarsSection);
         }
 
         resultsList.appendChild(resultItem);
