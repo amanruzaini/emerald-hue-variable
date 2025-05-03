@@ -878,6 +878,44 @@
             variableItem.appendChild(variableType);
             variableItem.appendChild(variableText);
             variableItem.appendChild(valueSpan);
+
+            // Display suggestions if available
+            if (variable.suggestions && variable.suggestions.length > 0) {
+              const suggestion = variable.suggestions[0]; // Show the best suggestion
+              const suggestionElement = document.createElement('div');
+              suggestionElement.className = 'suggestion';
+              suggestionElement.style.marginTop = '4px';
+              suggestionElement.style.marginLeft = '16px'; // Indent suggestion
+              suggestionElement.style.fontSize = '11px';
+              suggestionElement.style.color = '#555';
+
+              const suggestionLabel = document.createElement('span');
+              suggestionLabel.textContent = 'Suggest: ';
+              suggestionLabel.style.fontWeight = '500';
+
+              const suggestionName = document.createElement('span');
+              suggestionName.textContent = `${suggestion.variableName}`;
+              suggestionName.style.fontStyle = 'italic';
+
+              // Optional: Add a color swatch for the suggestion
+              const colorSwatch = document.createElement('span');
+              colorSwatch.style.display = 'inline-block';
+              colorSwatch.style.width = '10px';
+              colorSwatch.style.height = '10px';
+              colorSwatch.style.borderRadius = '2px';
+              colorSwatch.style.marginLeft = '4px';
+              colorSwatch.style.backgroundColor =
+                `rgb(${Math.round(suggestion.value.r * 255)}, ${Math.round(suggestion.value.g * 255)}, ${Math.round(suggestion.value.b * 255)})`;
+              colorSwatch.style.border = '1px solid #ccc';
+              colorSwatch.style.verticalAlign = 'middle';
+
+              suggestionElement.appendChild(suggestionLabel);
+              suggestionElement.appendChild(suggestionName);
+              suggestionElement.appendChild(colorSwatch); // Add swatch
+              // Append suggestion div below the variable item li
+              variableItem.appendChild(suggestionElement);
+            }
+
             missingList.appendChild(variableItem);
           });
 

@@ -584,14 +584,15 @@ function checkForColorVariables(node, result) {
             const generalFillBoundVar = yield getBoundVariable(node, 'fills'); // Check general fills binding
             if (!generalFillBoundVar) {
               // Only add missing if no general or specific binding found
+              const missingColorRgb = figmaColorToRgb255(fill.color);
+              const suggestion = findClosestColorVariable(missingColorRgb);
               result.missingVariables.push({
                 type: 'COLOR',
                 property: 'fill',
                 value: fill.color
-                  ? `RGB(${Math.round(fill.color.r * 255)}, ${Math.round(
-                      fill.color.g * 255
-                    )}, ${Math.round(fill.color.b * 255)})`
+                  ? `RGB(${missingColorRgb.r}, ${missingColorRgb.g}, ${missingColorRgb.b})`
                   : 'Unknown',
+                suggestions: suggestion ? [suggestion] : [], // Add suggestion here
               });
             } else {
               // Show actual color value for general binding
@@ -654,14 +655,15 @@ function checkForColorVariables(node, result) {
             ); // Check general strokes binding
             if (!generalStrokeBoundVar) {
               // Only add missing if no general or specific binding found
+              const missingColorRgb = figmaColorToRgb255(stroke.color);
+              const suggestion = findClosestColorVariable(missingColorRgb);
               result.missingVariables.push({
                 type: 'COLOR',
                 property: 'stroke',
                 value: stroke.color
-                  ? `RGB(${Math.round(stroke.color.r * 255)}, ${Math.round(
-                      stroke.color.g * 255
-                    )}, ${Math.round(stroke.color.b * 255)})`
+                  ? `RGB(${missingColorRgb.r}, ${missingColorRgb.g}, ${missingColorRgb.b})`
                   : 'Unknown',
+                suggestions: suggestion ? [suggestion] : [], // Add suggestion here
               });
             } else {
               const variableName = yield formatVariableName(
@@ -843,3 +845,265 @@ function checkForResponsiveVariables(node, result) {
     }
   });
 }
+
+// --- START: Color Comparison Utilities ---
+
+/**
+ * Converts RGB color values to XYZ color space.
+ * Assumes sRGB color space.
+ * @param {number} r Red value (0-255)
+ * @param {number} g Green value (0-255)
+ * @param {number} b Blue value (0-255)
+ * @returns {{x: number, y: number, z: number}}
+ */
+function rgbToXyz(r, g, b) {
+  let rLinear = r / 255;
+  let gLinear = g / 255;
+  let bLinear = b / 255;
+
+  rLinear =
+    rLinear > 0.04045
+      ? Math.pow((rLinear + 0.055) / 1.055, 2.4)
+      : rLinear / 12.92;
+  gLinear =
+    gLinear > 0.04045
+      ? Math.pow((gLinear + 0.055) / 1.055, 2.4)
+      : gLinear / 12.92;
+  bLinear =
+    bLinear > 0.04045
+      ? Math.pow((bLinear + 0.055) / 1.055, 2.4)
+      : bLinear / 12.92;
+
+  rLinear *= 100;
+  gLinear *= 100;
+  bLinear *= 100;
+
+  // Observer. = 2°, Illuminant = D65
+  const x = rLinear * 0.4124 + gLinear * 0.3576 + bLinear * 0.1805;
+  const y = rLinear * 0.2126 + gLinear * 0.7152 + bLinear * 0.0722;
+  const z = rLinear * 0.0193 + gLinear * 0.1192 + bLinear * 0.9505;
+
+  return { x, y, z };
+}
+
+/**
+ * Converts XYZ color values to CIELAB color space.
+ * Uses D65 reference white.
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @returns {{l: number, a: number, b: number}}
+ */
+function xyzToLab(x, y, z) {
+  const refX = 95.047; // Observer= 2°, Illuminant= D65
+  const refY = 100.0;
+  const refZ = 108.883;
+
+  x /= refX;
+  y /= refY;
+  z /= refZ;
+
+  x = x > 0.008856 ? Math.pow(x, 1 / 3) : 7.787 * x + 16 / 116;
+  y = y > 0.008856 ? Math.pow(y, 1 / 3) : 7.787 * y + 16 / 116;
+  z = z > 0.008856 ? Math.pow(z, 1 / 3) : 7.787 * z + 16 / 116;
+
+  const l = 116 * y - 16;
+  const a = 500 * (x - y);
+  const bValue = 200 * (y - z);
+
+  return { l, a, b: bValue };
+}
+
+/**
+ * Calculates the perceptual color difference between two colors in CIELAB space using the Delta E 2000 formula.
+ * @param {{l: number, a: number, b: number}} lab1
+ * @param {{l: number, a: number, b: number}} lab2
+ * @returns {number} The Delta E 2000 difference.
+ */
+function deltaE2000(lab1, lab2) {
+  const kL = 1,
+    kC = 1,
+    kH = 1;
+
+  const L1 = lab1.l,
+    a1 = lab1.a,
+    b1 = lab1.b;
+  const L2 = lab2.l,
+    a2 = lab2.a,
+    b2 = lab2.b;
+
+  const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+  const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+  const avgC = (C1 + C2) / 2;
+
+  const G =
+    0.5 *
+    (1 - Math.sqrt(Math.pow(avgC, 7) / (Math.pow(avgC, 7) + Math.pow(25, 7))));
+
+  const a1Prime = a1 * (1 + G);
+  const a2Prime = a2 * (1 + G);
+
+  const C1Prime = Math.sqrt(a1Prime * a1Prime + b1 * b1);
+  const C2Prime = Math.sqrt(a2Prime * a2Prime + b2 * b2);
+  const avgCPrime = (C1Prime + C2Prime) / 2;
+
+  let h1Prime = Math.atan2(b1, a1Prime);
+  if (h1Prime < 0) h1Prime += 2 * Math.PI;
+  let h2Prime = Math.atan2(b2, a2Prime);
+  if (h2Prime < 0) h2Prime += 2 * Math.PI;
+
+  const deltaLPrime = L2 - L1;
+  const deltaCPrime = C2Prime - C1Prime;
+
+  let deltahPrime;
+  const C1C2Prime = C1Prime * C2Prime;
+  if (C1C2Prime === 0) {
+    deltahPrime = 0;
+  } else {
+    deltahPrime = h2Prime - h1Prime;
+    if (deltahPrime > Math.PI) deltahPrime -= 2 * Math.PI;
+    if (deltahPrime < -Math.PI) deltahPrime += 2 * Math.PI;
+  }
+
+  const deltaHPrime = 2 * Math.sqrt(C1C2Prime) * Math.sin(deltahPrime / 2);
+
+  const avgL = (L1 + L2) / 2;
+  const avgHPrime =
+    C1C2Prime === 0
+      ? h1Prime + h2Prime
+      : Math.abs(h1Prime - h2Prime) > Math.PI
+      ? (h1Prime + h2Prime + 2 * Math.PI) / 2
+      : (h1Prime + h2Prime) / 2;
+
+  const T =
+    1 -
+    0.17 * Math.cos(avgHPrime - Math.PI / 6) +
+    0.24 * Math.cos(2 * avgHPrime) +
+    0.32 * Math.cos(3 * avgHPrime + Math.PI / 30) -
+    0.2 * Math.cos(4 * avgHPrime - (63 * Math.PI) / 180);
+
+  const SL =
+    1 +
+    (0.015 * Math.pow(avgL - 50, 2)) / Math.sqrt(20 + Math.pow(avgL - 50, 2));
+  const SC = 1 + 0.045 * avgCPrime;
+  const SH = 1 + 0.015 * avgCPrime * T;
+
+  const deltaTheta =
+    ((30 * Math.PI) / 180) *
+    Math.exp(-Math.pow(((avgHPrime * 180) / Math.PI - 275) / 25, 2));
+  const RC =
+    2 *
+    Math.sqrt(
+      Math.pow(avgCPrime, 7) / (Math.pow(avgCPrime, 7) + Math.pow(25, 7))
+    );
+  const RT = -RC * Math.sin(2 * deltaTheta);
+
+  const LTerm = deltaLPrime / (kL * SL);
+  const CTerm = deltaCPrime / (kC * SC);
+  const HTerm = deltaHPrime / (kH * SH);
+
+  return Math.sqrt(
+    Math.pow(LTerm, 2) +
+      Math.pow(CTerm, 2) +
+      Math.pow(HTerm, 2) +
+      RT * CTerm * HTerm
+  );
+}
+
+/**
+ * Converts a Figma color object {r, g, b} (0-1 range) to {r, g, b} (0-255 range).
+ * @param {{r: number, g: number, b: number}} figmaColor
+ * @returns {{r: number, g: number, b: number}}
+ */
+function figmaColorToRgb255(figmaColor) {
+  if (
+    !figmaColor ||
+    typeof figmaColor.r !== 'number' ||
+    typeof figmaColor.g !== 'number' ||
+    typeof figmaColor.b !== 'number'
+  ) {
+    return { r: 0, g: 0, b: 0 }; // Return black or throw error for invalid input
+  }
+  return {
+    r: Math.round(figmaColor.r * 255),
+    g: Math.round(figmaColor.g * 255),
+    b: Math.round(figmaColor.b * 255),
+  };
+}
+
+/**
+ * Finds the closest color variable suggestion for a given RGB color.
+ * @param {{r: number, g: number, b: number}} targetRgb The target color (0-255).
+ * @param {number} threshold The maximum Delta E 2000 distance allowed.
+ * @returns {{variableId: string, variableName: string, distance: number, value: object} | null} The best suggestion or null.
+ */
+function findClosestColorVariable(targetRgb, threshold = 20) {
+  let bestSuggestion = null;
+  let minDistance = threshold;
+
+  const targetLab = xyzToLab(
+    ...Object.values(rgbToXyz(targetRgb.r, targetRgb.g, targetRgb.b))
+  );
+
+  for (const variableId in variableMap) {
+    const entry = variableMap[variableId];
+    if (!entry || !entry.variable || entry.variable.resolvedType !== 'COLOR') {
+      continue;
+    }
+
+    let variableValue = entry.variable.value;
+    let variableName = entry.variable.name; // Use the specific alias name if available
+
+    // If it's an alias, get the resolved value from the parent
+    if (entry.variable.isAlias && entry.variable.parentId) {
+      const parentValue = getVariableValue(entry.variable.parentId);
+      if (
+        parentValue &&
+        typeof parentValue === 'object' &&
+        'r' in parentValue
+      ) {
+        variableValue = parentValue;
+        // Keep the alias name for the suggestion, as it's what the user might recognize
+      } else {
+        continue; // Cannot resolve alias value
+      }
+    }
+
+    // Check if variableValue is a valid color object {r, g, b} (0-1 range)
+    if (
+      !variableValue ||
+      typeof variableValue.r !== 'number' ||
+      typeof variableValue.g !== 'number' ||
+      typeof variableValue.b !== 'number'
+    ) {
+      console.warn(
+        `Skipping variable ${variableName} (${variableId}) due to invalid color value:`,
+        variableValue
+      );
+      continue;
+    }
+
+    const variableRgb255 = figmaColorToRgb255(variableValue);
+    const variableLab = xyzToLab(
+      ...Object.values(
+        rgbToXyz(variableRgb255.r, variableRgb255.g, variableRgb255.b)
+      )
+    );
+
+    const distance = deltaE2000(targetLab, variableLab);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      bestSuggestion = {
+        variableId: variableId,
+        variableName: variableName, // Suggest the name of the variable/alias itself
+        distance: distance,
+        value: variableValue, // Store the actual resolved color value
+      };
+    }
+  }
+
+  return bestSuggestion;
+}
+
+// --- END: Color Comparison Utilities ---
