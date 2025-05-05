@@ -7,20 +7,8 @@
   <title>Emerald HUE Variable Scanner</title>
   <style>
     :root {
-      /* normal */
-      --colour-text-strong: #15191E;
-      --colour-text-default: #394655;
-      --colour-text-error: #A91A1F;
-      /* brand colour */
-      --brand-bg: #00807C;
-      --brand-bg-hover: #00524F;
-      --brand-bg-inverted: #E0F3F3;
-      --brand-border-default: #00807C;
-      --brand-text-default: #00615E;
-      /* border */
-      --border-default: #5D7083;
-      --border-weak: #CBD6E2;
-      --border-strong: #262D36;
+      --brand: #00807C;
+      --brand-hover: #00524F;
     }
 
     body {
@@ -28,7 +16,7 @@
       margin: 0;
       padding: 16px;
       background-color: #F7FAFD;
-      color: var(--colour-text-default);
+      color: #394655;
       font-size: 14px;
     }
 
@@ -47,7 +35,7 @@
 
     p {
       margin: 0 0 16px 0;
-      color: var(--colour-text-default);
+      color: #394655;
     }
 
     p a {
@@ -58,7 +46,6 @@
 
     .panel {
       background: white;
-      border: 1px solid var(--border-weak);
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 16px;
@@ -93,17 +80,17 @@
       align-items: center;
     }
 
-    /* button:focus {
+    button:focus {
       outline: 2px solid #059669;
-    } */
+    }
 
     .primary-button {
-      background-color: var(--brand-bg);
+      background-color: var(--brand);
       color: white;
     }
 
     .primary-button:hover {
-      background-color: var(--brand-bg-hover);
+      background-color: var(--brand-hover);
     }
 
     .secondary-button {
@@ -229,47 +216,22 @@
     }
 
     .tab {
-      padding: 8px 12px;
-      background-color: white;
-      /* color: var(--brand-text-default); */
-      border-radius: 8px;
+      padding: 6px 12px;
+      background-color: #f3f4f6;
+      border-radius: 4px;
       font-size: 14px;
-      border: 0px solid;
+      border: none;
       font-weight: 500;
       cursor: pointer;
     }
 
     .tab:hover {
-      background-color: #F0F5FA;
-      border-color: #5D7083;
-      color: var(--colour-text-strong);
+      background-color: #e5e7eb;
     }
 
     .tab-active {
-      background-color: var(--brand-bg-inverted);
-      color: var(--brand-text-default);
-      /* font-weight: 600; */
-      border: 1px solid var(--brand-border-default);
-    }
-
-    .tab-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background-color: #4f5f64;
-      color: white;
-      border-radius: 9999px;
-      font-size: 11px;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 6px;
-      margin-left: 6px;
-      font-weight: 500;
-    }
-
-    .tab-active .tab-count {
-      background-color: var(--brand-bg);
-      color: white;
+      background-color: #e5e7eb;
+      font-weight: 600;
     }
 
     .results-list {
@@ -279,7 +241,7 @@
     .result-item {
       padding: 12px;
       background-color: #f9fafb;
-      border: 1px solid var(--border-weak);
+      border: 1px solid #e5e7eb;
       border-radius: 6px;
       margin-bottom: 8px;
       cursor: pointer;
@@ -287,17 +249,17 @@
     }
 
     .result-item:hover {
-      border-color: var(--border-strong);
+      background-color: #e5e7eb;
     }
 
     .result-item-selected {
-      background-color: var(--brand-bg-inverted);
-      border-color: var(--brand-border-default);
+      background-color: #d1fae5;
+      border-color: #059669;
     }
 
-    /* .result-item-selected:hover {
+    .result-item-selected:hover {
       background-color: #a7f3d0;
-    } */
+    }
 
     .node-header {
       display: flex;
@@ -326,7 +288,6 @@
     .variable-section h4 {
       font-size: 13px;
       margin: 0 0 4px 0;
-      font-weight: 500;
     }
 
     .has-variables h4 {
@@ -334,8 +295,7 @@
     }
 
     .missing-variables h4 {
-      font-weight: 500;
-      color: var(--colour-text-error);
+      color: #d97706;
     }
 
     .variable-list {
@@ -469,9 +429,10 @@
     }
 
     .error-message {
-      margin: 12px 0;
+      margin-top: 12px;
       padding: 8px 12px;
-      color: var(--colour-text-error);
+      background-color: var(--figma-color-bg-danger);
+      color: var(--figma-color-text-danger);
       border-radius: 6px;
       font-size: 13px;
       text-align: center;
@@ -479,9 +440,8 @@
 
     .floating-panel {
       position: fixed;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
+      bottom: 16px;
+      right: 16px;
       z-index: 1000;
     }
 
@@ -489,9 +449,103 @@
       width: 100%;
       padding: 12px 20px;
       border-radius: 24px;
-      background-color: var(--brand-bg);
+      background-color: var(--brand);
       color: white;
-      box-shadow: 0 3px 10px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: -1px 3px 10px 4px #ccc;
+    }
+
+    .suggestions-panel {
+      background-color: #f0fdf4;
+      border: 1px solid #d1fae5;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+
+    .suggestions-title {
+      font-weight: 600;
+      color: #047857;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+    }
+
+    .suggestions-title svg {
+      margin-right: 6px;
+    }
+
+    .suggestion-item {
+      padding: 8px;
+      background-color: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+
+    .suggestion-property {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .suggestion-value {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .suggested-vars {
+      margin-top: 4px;
+    }
+
+    .suggested-var {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      background-color: #f9fafb;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
+    .suggested-var-name {
+      font-weight: 500;
+      color: #111827;
+    }
+
+    .confidence-badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .confidence-high {
+      background-color: #d1fae5;
+      color: #047857;
+    }
+
+    .confidence-medium {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    .confidence-low {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .apply-variable-btn {
+      background-color: #f3f4f6;
+      border: none;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .apply-variable-btn:hover {
+      background-color: #e5e7eb;
     }
   </style>
 </head>
@@ -613,20 +667,52 @@
     </div>
 
     <div class="tabs">
-      <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">
-        All <span id="allNodesCount" class="tab-count">0</span>
-      </button>
-      <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">
-        Missing <span id="missingNodesCount" class="tab-count">0</span>
-      </button>
-      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">
-        Used <span id="usedNodesCount" class="tab-count">0</span>
-      </button>
+      <button id="showAll" class="tab tab-active" tabindex="0" aria-label="Show all nodes">All</button>
+      <button id="showUsed" class="tab" tabindex="0" aria-label="Show nodes with variables used">Used Variables</button>
+      <button id="showMissing" class="tab" tabindex="0" aria-label="Show nodes with missing variables">Missing
+        Variables</button>
     </div>
 
     <!-- Detailed Results -->
     <div id="resultsList" class="results-list">
       <!-- Results will be dynamically populated here -->
+    </div>
+  </div>
+
+  <!-- Insert this where the missing variables are displayed in the result item template -->
+  <div id="result-item-template" class="hidden">
+    <!-- Add this after the missing variables section -->
+    <div class="suggestions-panel hidden js-suggestions-panel">
+      <div class="suggestions-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21v-1"
+            stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M12 18a6 6 0 100-12 6 6 0 000 12z" fill="#d1fae5" stroke="#047857" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>Variable Suggestions</span>
+      </div>
+      <div class="js-suggestions-list"></div>
+    </div>
+  </div>
+
+  <!-- Insert this as a template for individual suggestions -->
+  <div id="suggestion-item-template" class="hidden">
+    <div class="suggestion-item">
+      <div class="suggestion-property"></div>
+      <div class="suggestion-value"></div>
+      <div class="suggested-vars"></div>
+    </div>
+  </div>
+
+  <!-- Insert this as a template for each suggested variable -->
+  <div id="suggested-var-template" class="hidden">
+    <div class="suggested-var">
+      <div class="suggested-var-name"></div>
+      <div class="suggestion-actions">
+        <span class="confidence-badge"></span>
+        <button class="apply-variable-btn">Apply</button>
+      </div>
     </div>
   </div>
 
@@ -648,9 +734,6 @@
     const showMissing = document.getElementById('showMissing');
     const showUsed = document.getElementById('showUsed');
     const scanError = document.getElementById('scanError');
-    const allNodesCount = document.getElementById('allNodesCount');
-    const usedNodesCount = document.getElementById('usedNodesCount');
-    const missingNodesCount = document.getElementById('missingNodesCount');
 
     // Initialize UI state
     optionsPanel.style.display = 'block';
@@ -730,14 +813,6 @@
         usedVariablesCount.textContent = totalUsed;
         missingVariablesCount.textContent = totalMissing;
         nodesScannedCount.textContent = scanResults.length;
-
-        // Update tab counts
-        const nodesWithUsedVars = scanResults.filter(result => result.hasVariables.length > 0).length;
-        const nodesWithMissingVars = scanResults.filter(result => result.missingVariables.length > 0).length;
-
-        allNodesCount.textContent = scanResults.length;
-        usedNodesCount.textContent = nodesWithUsedVars;
-        missingNodesCount.textContent = nodesWithMissingVars;
 
         // Render results
         renderResults(scanResults);
@@ -841,89 +916,7 @@
         nodeInfo.appendChild(nodeType);
         resultItem.appendChild(nodeInfo);
 
-        // Missing Variables section (moved first)
-        if (result.missingVariables.length > 0) {
-          const missingVarsSection = document.createElement('div');
-          missingVarsSection.className = 'variable-section missing-variables';
-
-          const missingVarsTitle = document.createElement('h4');
-          missingVarsTitle.textContent = 'Missing Variables:';
-          missingVarsSection.appendChild(missingVarsTitle);
-
-          const missingList = document.createElement('ul');
-          missingList.className = 'variable-list';
-
-          result.missingVariables.forEach(variable => {
-            const variableItem = document.createElement('li');
-            variableItem.className = 'variable-item';
-
-            const variableType = document.createElement('span');
-            let tagClass = 'tag ';
-            if (variable.type === 'COLOR') tagClass += 'color-tag';
-            else if (variable.type === 'TEXT') tagClass += 'text-tag';
-            else tagClass += 'responsive-tag';
-
-            variableType.className = tagClass;
-            variableType.textContent = variable.type;
-
-            const variableText = document.createTextNode(
-              ` ${variable.property}`
-            );
-
-            // Add value display if available
-            const valueSpan = document.createElement('span');
-            valueSpan.className = 'variable-value';
-            valueSpan.textContent = variable.value ? ` (${variable.value})` : '';
-
-            variableItem.appendChild(variableType);
-            variableItem.appendChild(variableText);
-            variableItem.appendChild(valueSpan);
-
-            // Display suggestions if available
-            if (variable.suggestions && variable.suggestions.length > 0) {
-              const suggestion = variable.suggestions[0]; // Show the best suggestion
-              const suggestionElement = document.createElement('div');
-              suggestionElement.className = 'suggestion';
-              suggestionElement.style.marginTop = '4px';
-              suggestionElement.style.marginLeft = '16px'; // Indent suggestion
-              suggestionElement.style.fontSize = '11px';
-              suggestionElement.style.color = '#555';
-
-              const suggestionLabel = document.createElement('span');
-              suggestionLabel.textContent = 'Suggest: ';
-              suggestionLabel.style.fontWeight = '500';
-
-              const suggestionName = document.createElement('span');
-              suggestionName.textContent = `${suggestion.variableName}`;
-              suggestionName.style.fontStyle = 'italic';
-
-              // Optional: Add a color swatch for the suggestion
-              const colorSwatch = document.createElement('span');
-              colorSwatch.style.display = 'inline-block';
-              colorSwatch.style.width = '10px';
-              colorSwatch.style.height = '10px';
-              colorSwatch.style.borderRadius = '2px';
-              colorSwatch.style.marginLeft = '4px';
-              colorSwatch.style.backgroundColor =
-                `rgb(${Math.round(suggestion.value.r * 255)}, ${Math.round(suggestion.value.g * 255)}, ${Math.round(suggestion.value.b * 255)})`;
-              colorSwatch.style.border = '1px solid #ccc';
-              colorSwatch.style.verticalAlign = 'middle';
-
-              suggestionElement.appendChild(suggestionLabel);
-              suggestionElement.appendChild(suggestionName);
-              suggestionElement.appendChild(colorSwatch); // Add swatch
-              // Append suggestion div below the variable item li
-              variableItem.appendChild(suggestionElement);
-            }
-
-            missingList.appendChild(variableItem);
-          });
-
-          missingVarsSection.appendChild(missingList);
-          resultItem.appendChild(missingVarsSection);
-        }
-
-        // Variables section (moved second)
+        // Variables section
         if (result.hasVariables.length > 0) {
           const hasVarsSection = document.createElement('div');
           hasVarsSection.className = 'variable-section has-variables';
@@ -965,6 +958,55 @@
 
           hasVarsSection.appendChild(variablesList);
           resultItem.appendChild(hasVarsSection);
+        }
+
+        // Missing Variables section
+        if (result.missingVariables.length > 0) {
+          const missingVarsSection = document.createElement('div');
+          missingVarsSection.className = 'variable-section missing-variables';
+
+          const missingVarsTitle = document.createElement('h4');
+          missingVarsTitle.textContent = 'Missing Variables:';
+          missingVarsSection.appendChild(missingVarsTitle);
+
+          const missingList = document.createElement('ul');
+          missingList.className = 'variable-list';
+
+          result.missingVariables.forEach(variable => {
+            const variableItem = document.createElement('li');
+            variableItem.className = 'variable-item';
+
+            const variableType = document.createElement('span');
+            let tagClass = 'tag ';
+            if (variable.type === 'COLOR') tagClass += 'color-tag';
+            else if (variable.type === 'TEXT') tagClass += 'text-tag';
+            else tagClass += 'responsive-tag';
+
+            variableType.className = tagClass;
+            variableType.textContent = variable.type;
+
+            const variableText = document.createTextNode(
+              ` ${variable.property}`
+            );
+
+            // Add value display if available
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'variable-value';
+            valueSpan.textContent = variable.value ? ` (${variable.value})` : '';
+
+            variableItem.appendChild(variableType);
+            variableItem.appendChild(variableText);
+            variableItem.appendChild(valueSpan);
+            missingList.appendChild(variableItem);
+          });
+
+          missingVarsSection.appendChild(missingList);
+          resultItem.appendChild(missingVarsSection);
+        }
+
+        // Add suggestions if available
+        if (result.suggestions && result.suggestions.length > 0) {
+          displaySuggestions(resultItem, result.suggestions);
         }
 
         resultsList.appendChild(resultItem);
@@ -1036,6 +1078,95 @@
     showAll.addEventListener('click', () => handleFilter('all'));
     showMissing.addEventListener('click', () => handleFilter('missing'));
     showUsed.addEventListener('click', () => handleFilter('used'));
+
+    // Add this function in the script section to handle variable suggestions
+    function displaySuggestions(resultElement, suggestions) {
+      const suggestionsPanel = resultElement.querySelector('.js-suggestions-panel');
+      const suggestionsList = resultElement.querySelector('.js-suggestions-list');
+
+      // Clear previous suggestions
+      suggestionsList.innerHTML = '';
+
+      if (suggestions && suggestions.length > 0) {
+        // Show suggestions panel
+        suggestionsPanel.classList.remove('hidden');
+
+        // Create suggestion items
+        suggestions.forEach(suggestion => {
+          const itemTemplate = document.getElementById('suggestion-item-template');
+          const item = itemTemplate.cloneNode(true);
+          item.removeAttribute('id');
+          item.classList.remove('hidden');
+
+          // Set suggestion info
+          item.querySelector('.suggestion-property').textContent = formatPropertyName(suggestion.property);
+          item.querySelector('.suggestion-value').textContent = `Current value: ${suggestion.value}`;
+
+          const varsContainer = item.querySelector('.suggested-vars');
+
+          // Add each suggested variable
+          suggestion.suggestedVariables.forEach(varSuggestion => {
+            const varTemplate = document.getElementById('suggested-var-template');
+            const varItem = varTemplate.cloneNode(true);
+            varItem.removeAttribute('id');
+            varItem.classList.remove('hidden');
+
+            // Set variable info
+            varItem.querySelector('.suggested-var-name').textContent = varSuggestion.name;
+
+            // Set confidence badge
+            const badge = varItem.querySelector('.confidence-badge');
+            badge.textContent = `${varSuggestion.confidence}%`;
+
+            if (varSuggestion.confidence >= 80) {
+              badge.classList.add('confidence-high');
+            } else if (varSuggestion.confidence >= 60) {
+              badge.classList.add('confidence-medium');
+            } else {
+              badge.classList.add('confidence-low');
+            }
+
+            // Set up apply button
+            const applyBtn = varItem.querySelector('.apply-variable-btn');
+            applyBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              applyVariableSuggestion(
+                suggestion.property,
+                varSuggestion.id,
+                resultElement.dataset.nodeId
+              );
+            });
+
+            varsContainer.appendChild(varItem);
+          });
+
+          suggestionsList.appendChild(item);
+        });
+      } else {
+        // Hide suggestions panel if no suggestions
+        suggestionsPanel.classList.add('hidden');
+      }
+    }
+
+    // Helper function to format property names
+    function formatPropertyName(property) {
+      return property
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase());
+    }
+
+    // Function to apply a suggested variable
+    function applyVariableSuggestion(property, variableId, nodeId) {
+      // Send message to the plugin to apply the variable
+      parent.postMessage({
+        pluginMessage: {
+          type: 'apply-variable-suggestion',
+          nodeId: nodeId,
+          property: property,
+          variableId: variableId
+        }
+      }, '*');
+    }
   </script>
 </body>
 

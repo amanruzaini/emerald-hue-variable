@@ -422,12 +422,177 @@ figma.ui.onmessage = async (msg: { type: string; options?: ScanOptions }) => {
     // Send results back to UI
     figma.ui.postMessage({
       type: 'scan-results',
-      results: results
+      results: results,
+      hasSuggestions: results.some(r => r.hasOwnProperty('suggestions'))
     });
+  } else if (msg.type === 'apply-variable-suggestion') {
+    try {
+      // Get the node by ID
+      const node = figma.getNodeById(msg.nodeId);
+      if (!node) {
+        figma.ui.postMessage({
+          type: 'variable-applied',
+          success: false,
+          error: 'Node not found'
+        });
+        return;
+      }
+
+      // Get the variable by ID
+      const variable = await figma.variables.getVariableByIdAsync(msg.variableId);
+      if (!variable) {
+        figma.ui.postMessage({
+          type: 'variable-applied',
+          success: false,
+          error: 'Variable not found'
+        });
+        return;
+      }
+
+      // Apply the variable to the property
+      try {
+        // Different property paths require different binding approaches
+        if (msg.property.includes('fill') || msg.property === 'fills') {
+          // For fill properties
+          await applyFillVariable(node, variable);
+        } else if (msg.property.includes('stroke') || msg.property === 'strokes') {
+          // For stroke properties
+          await applyStrokeVariable(node, variable);
+        } else if (msg.property === 'fontSize' || msg.property === 'fontWeight') {
+          // For text properties
+          await applyTextVariable(node, variable, msg.property);
+        } else if (msg.property.includes('padding') || msg.property.includes('spacing') || 
+                  msg.property === 'width' || msg.property === 'height') {
+          // For size/spacing properties
+          await applySpacingVariable(node, variable, msg.property);
+        } else {
+          // Generic property binding attempt
+          await applyGenericVariable(node, variable, msg.property);
+        }
+
+        // Send success message
+        figma.ui.postMessage({
+          type: 'variable-applied',
+          success: true,
+          variableName: variable.name
+        });
+
+        // Add the variable to the "used" list for this node
+        const result = results.find(r => r.nodeId === msg.nodeId);
+        if (result) {
+          const variableName = await formatVariableName(variable);
+          result.hasVariables.push({
+            type: variable.resolvedType as VariableType,
+            property: msg.property,
+            variableName: variableName
+          });
+
+          // Remove from missing variables if it exists
+          result.missingVariables = result.missingVariables.filter(mv => 
+            mv.property !== msg.property
+          );
+
+          // Update the UI with the modified results
+          figma.ui.postMessage({
+            type: 'scan-results',
+            results: results,
+            hasSuggestions: results.some(r => r.hasOwnProperty('suggestions'))
+          });
+        }
+      } catch (error) {
+        console.error('Error applying variable:', error);
+        figma.ui.postMessage({
+          type: 'variable-applied',
+          success: false,
+          error: 'Failed to apply variable: ' + error.message
+        });
+      }
+    } catch (error) {
+      console.error('Error in apply-variable-suggestion:', error);
+      figma.ui.postMessage({
+        type: 'variable-applied',
+        success: false,
+        error: 'An unexpected error occurred'
+      });
+    }
   } else if (msg.type === 'close') {
-  figma.closePlugin();
+    figma.closePlugin();
   }
 };
+
+// Helper functions for applying variables to different properties
+
+async function applyFillVariable(node: SceneNode, variable: Variable): Promise<void> {
+  if ('fills' in node && Array.isArray(node.fills) && node.fills.length > 0) {
+    // Get the first fill
+    const fills = [...node.fills];
+    const firstFill = {...fills[0]};
+    
+    if (firstFill.type === 'SOLID') {
+      // Bind the variable to the fill color
+      node.setBoundVariable('fills', variable.id, ['0', 'color']);
+    }
+  }
+}
+
+async function applyStrokeVariable(node: SceneNode, variable: Variable): Promise<void> {
+  if ('strokes' in node && Array.isArray(node.strokes) && node.strokes.length > 0) {
+    // Get the first stroke
+    const strokes = [...node.strokes];
+    const firstStroke = {...strokes[0]};
+    
+    if (firstStroke.type === 'SOLID') {
+      // Bind the variable to the stroke color
+      node.setBoundVariable('strokes', variable.id, ['0', 'color']);
+    }
+  }
+}
+
+async function applyTextVariable(node: SceneNode, variable: Variable, property: string): Promise<void> {
+  if (node.type === 'TEXT') {
+    if (property === 'fontSize') {
+      node.setBoundVariable('fontSize', variable.id);
+    } else if (property === 'fontWeight') {
+      // Assuming fontWeight is supported for binding
+      node.setBoundVariable('fontWeight', variable.id);
+    }
+  }
+}
+
+async function applySpacingVariable(node: SceneNode, variable: Variable, property: string): Promise<void> {
+  if (property === 'width' && 'width' in node) {
+    node.setBoundVariable('width', variable.id);
+  } else if (property === 'height' && 'height' in node) {
+    node.setBoundVariable('height', variable.id);
+  } else if (property.includes('padding') && 'paddingLeft' in node) {
+    // For auto layout frames with padding
+    if (property === 'paddingLeft' || property === 'padding') {
+      node.setBoundVariable('paddingLeft', variable.id);
+    }
+    if (property === 'paddingRight' || property === 'padding') {
+      node.setBoundVariable('paddingRight', variable.id);
+    }
+    if (property === 'paddingTop' || property === 'padding') {
+      node.setBoundVariable('paddingTop', variable.id);
+    }
+    if (property === 'paddingBottom' || property === 'padding') {
+      node.setBoundVariable('paddingBottom', variable.id);
+    }
+  } else if (property.includes('spacing') && 'itemSpacing' in node) {
+    node.setBoundVariable('itemSpacing', variable.id);
+  }
+}
+
+async function applyGenericVariable(node: SceneNode, variable: Variable, property: string): Promise<void> {
+  // Try a generic approach to bind the variable
+  // This might fail for properties that don't support variable binding
+  try {
+    // @ts-ignore - We're trying a generic approach
+    node.setBoundVariable(property, variable.id);
+  } catch (error) {
+    throw new Error(`Cannot bind variable to property "${property}"`);
+  }
+}
 
 // Helper function to get bound variable from a node
 async function getBoundVariable(node: SceneNode, property: string): Promise<Variable | VariableAlias | null> {
@@ -553,6 +718,256 @@ async function formatVariableName(
   }
 }
 
+// Interface to represent a variable suggestion
+interface VariableSuggestion {
+  property: string;
+  value: string;
+  suggestedVariables: {
+    name: string;
+    id: string;
+    confidence: number; // 0-100 score indicating confidence level
+  }[];
+}
+
+// Function to get variable suggestions for missing variables
+async function getSuggestionForMissingVariables(missingVariables: {
+  type: VariableType;
+  property: string;
+  value?: string;
+}[]): Promise<VariableSuggestion[]> {
+  const suggestions: VariableSuggestion[] = [];
+
+  for (const missingVar of missingVariables) {
+    if (!missingVar.value) continue;
+
+    const suggestion: VariableSuggestion = {
+      property: missingVar.property,
+      value: missingVar.value,
+      suggestedVariables: []
+    };
+
+    // Handle color suggestions
+    if (missingVar.type === 'COLOR' && missingVar.value) {
+      suggestion.suggestedVariables = await findSimilarColorVariables(missingVar.value);
+    } 
+    // Handle text suggestions
+    else if (missingVar.type === 'TEXT' && missingVar.value) {
+      suggestion.suggestedVariables = findSimilarTextVariables(missingVar.value);
+    }
+    // Handle responsive suggestions
+    else if (missingVar.type === 'RESPONSIVE' && missingVar.value) {
+      suggestion.suggestedVariables = findSimilarResponsiveVariables(missingVar.value);
+    }
+
+    if (suggestion.suggestedVariables.length > 0) {
+      suggestions.push(suggestion);
+    }
+  }
+
+  return suggestions;
+}
+
+// Find similar color variables
+async function findSimilarColorVariables(colorValue: string): Promise<{ name: string; id: string; confidence: number }[]> {
+  const suggestions: { name: string; id: string; confidence: number }[] = [];
+  
+  // Convert hex to RGB if needed
+  let targetColor = colorValue;
+  if (colorValue.startsWith('#')) {
+    // Convert hex to RGB
+    const r = parseInt(colorValue.slice(1, 3), 16) / 255;
+    const g = parseInt(colorValue.slice(3, 5), 16) / 255;
+    const b = parseInt(colorValue.slice(5, 7), 16) / 255;
+    targetColor = `rgba(${r}, ${g}, ${b}, 1)`;
+  }
+
+  // Iterate through all stored color variables
+  for (const [varId, varEntry] of Object.entries(variableMap)) {
+    const variable = varEntry.variable;
+    
+    if (!variable || variable.resolvedType !== 'COLOR') continue;
+    
+    const value = variable.value;
+    // Skip if it's an alias
+    if (isVariableAlias(value)) continue;
+
+    // Calculate color similarity
+    let confidence = 0;
+    
+    if (typeof value === 'object' && 'r' in value && 'g' in value && 'b' in value) {
+      const colorObj = value as ColorValue;
+      
+      // Simple color distance calculation (Euclidean distance in RGB space)
+      let targetR = 0, targetG = 0, targetB = 0;
+      
+      // Parse the target color
+      if (targetColor.startsWith('rgba(')) {
+        const parts = targetColor.substring(5, targetColor.length - 1).split(',');
+        targetR = parseFloat(parts[0]);
+        targetG = parseFloat(parts[1]);
+        targetB = parseFloat(parts[2]);
+      }
+      
+      // Calculate distance (0-1 scale for each component)
+      const distance = Math.sqrt(
+        Math.pow(targetR - colorObj.r, 2) + 
+        Math.pow(targetG - colorObj.g, 2) + 
+        Math.pow(targetB - colorObj.b, 2)
+      );
+      
+      // Convert distance to confidence (closer = higher confidence)
+      // Distance range: 0 (identical) to 1.732 (max distance in RGB space)
+      confidence = Math.max(0, 100 - (distance * 100 / 1.732));
+      
+      // Only include if confidence is above threshold
+      if (confidence > 50) {
+        suggestions.push({
+          name: variable.name,
+          id: variable.id,
+          confidence: Math.round(confidence)
+        });
+      }
+    }
+  }
+  
+  // Sort by confidence (highest first)
+  return suggestions.sort((a, b) => b.confidence - a.confidence);
+}
+
+// Find similar text variables
+function findSimilarTextVariables(textValue: string): { name: string; id: string; confidence: number }[] {
+  const suggestions: { name: string; id: string; confidence: number }[] = [];
+  
+  // Iterate through all stored text variables
+  for (const [varId, varEntry] of Object.entries(variableMap)) {
+    const variable = varEntry.variable;
+    
+    if (!variable || variable.resolvedType !== 'STRING') continue;
+    
+    const value = variable.value;
+    if (isVariableAlias(value)) continue;
+    
+    // Calculate text similarity (for now, using a string comparison approach)
+    let confidence = 0;
+    
+    if (typeof value === 'string') {
+      // Pattern-based comparison
+      // If variable name contains keywords like "heading", "body", "caption", etc.
+      // try to match them with the style of the text node
+      
+      const varName = variable.name.toLowerCase();
+      const textLower = textValue.toLowerCase();
+      
+      // Check for name pattern matches
+      if (
+        (varName.includes('heading') && textValue.length < 50) ||
+        (varName.includes('body') && textValue.length > 20) ||
+        (varName.includes('caption') && textValue.length < 100)
+      ) {
+        confidence = 60; // Base confidence for pattern match
+      }
+      
+      // Check for partial content matches
+      if (value.includes(textValue) || textValue.includes(value)) {
+        confidence += 20;
+      }
+      
+      // Check for font style keywords
+      const fontStyleKeywords = ['bold', 'medium', 'light', 'regular', 'italic'];
+      for (const keyword of fontStyleKeywords) {
+        if (varName.includes(keyword)) {
+          confidence += 10;
+          break;
+        }
+      }
+      
+      if (confidence > 50) {
+        suggestions.push({
+          name: variable.name,
+          id: variable.id,
+          confidence: Math.min(100, Math.round(confidence))
+        });
+      }
+    }
+  }
+  
+  // Sort by confidence (highest first)
+  return suggestions.sort((a, b) => b.confidence - a.confidence);
+}
+
+// Find similar responsive variables
+function findSimilarResponsiveVariables(value: string): { name: string; id: string; confidence: number }[] {
+  const suggestions: { name: string; id: string; confidence: number }[] = [];
+  
+  // Iterate through all stored responsive variables
+  for (const [varId, varEntry] of Object.entries(variableMap)) {
+    const variable = varEntry.variable;
+    
+    if (!variable || variable.resolvedType !== 'FLOAT') continue;
+    
+    const varValue = variable.value;
+    if (isVariableAlias(varValue)) continue;
+    
+    // Pattern matching for spacing, sizing variables
+    let confidence = 0;
+    const varName = variable.name.toLowerCase();
+    
+    // Extract numeric value if possible
+    let numericValue = 0;
+    if (typeof value === 'string') {
+      const match = value.match(/(\d+)/);
+      if (match) {
+        numericValue = parseInt(match[1]);
+      }
+    }
+    
+    // Extract variable numeric value
+    let varNumericValue = 0;
+    if (typeof varValue === 'number') {
+      varNumericValue = varValue;
+    }
+    
+    // Compare values
+    if (numericValue > 0 && varNumericValue > 0) {
+      // Calculate similarity based on value proximity
+      const ratio = numericValue / varNumericValue;
+      if (ratio >= 0.8 && ratio <= 1.2) {
+        // Values are within 20% of each other
+        confidence = 100 - (Math.abs(ratio - 1) * 100);
+      }
+    }
+    
+    // Pattern matching based on common naming conventions
+    const sizePatterns = [
+      { pattern: 'spacing', keywords: ['margin', 'padding', 'gap'] },
+      { pattern: 'radius', keywords: ['corner', 'rounded', 'border-radius'] },
+      { pattern: 'size', keywords: ['width', 'height', 'size'] }
+    ];
+    
+    for (const {pattern, keywords} of sizePatterns) {
+      if (varName.includes(pattern)) {
+        for (const keyword of keywords) {
+          if (value.toLowerCase().includes(keyword)) {
+            confidence += 15;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (confidence > 50) {
+      suggestions.push({
+        name: variable.name,
+        id: variable.id,
+        confidence: Math.min(100, Math.round(confidence))
+      });
+    }
+  }
+  
+  // Sort by confidence (highest first)
+  return suggestions.sort((a, b) => b.confidence - a.confidence);
+}
+
 // Recursive function to scan nodes for variable usage
 async function scanNode(
   node: SceneNode,
@@ -611,6 +1026,20 @@ async function scanNode(
   // Add to results if we found missing or used variables
   if (nodeResult.missingVariables.length > 0 || nodeResult.hasVariables.length > 0) {
     results.push(nodeResult);
+  }
+
+  // After the existing scan logic completes, add suggestions for missing variables
+  const result = results.find(r => r.nodeId === node.id);
+  
+  if (result && result.missingVariables.length > 0) {
+    // Get suggestions for missing variables
+    const suggestions = await getSuggestionForMissingVariables(result.missingVariables);
+    
+    // Add suggestions to the result
+    if (suggestions.length > 0) {
+      // @ts-ignore - Add suggestions property to the result
+      result.suggestions = suggestions;
+    }
   }
 
   // Recursively scan children if node is a parent
